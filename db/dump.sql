@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict GhzaKGC6vMr30KleH0qlddF7oCo8dtMc0RNnUaQuLancQSLqvaWamdwrVmB19Ma
+\restrict fqUIAZvDj1BFqwRxrv1QY6WG00SaWgtiN2wuVFMCRb4Mkhwh2TaMLEcDsItCK2Z
 
 -- Dumped from database version 16.15 (Homebrew)
 -- Dumped by pg_dump version 16.15 (Homebrew)
@@ -122,6 +122,8 @@ CREATE TABLE public.customers (
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    billing_type text DEFAULT 'prepaid'::text NOT NULL,
+    CONSTRAINT customers_billing_type_check CHECK ((billing_type = ANY (ARRAY['prepaid'::text, 'postpaid'::text]))),
     CONSTRAINT customers_due_day_check CHECK (((due_day >= 1) AND (due_day <= 31))),
     CONSTRAINT customers_isolir_day_check CHECK (((isolir_day >= 1) AND (isolir_day <= 31))),
     CONSTRAINT customers_status_check CHECK ((status = ANY (ARRAY['active'::text, 'isolated'::text, 'inactive'::text])))
@@ -309,7 +311,7 @@ COPY public.admins (id, username, password_hash, name, created_at) FROM stdin;
 -- Data for Name: customers; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.customers (id, code, name, phone, address, pppoe_username, pppoe_password, package_id, active_date, due_day, isolir_day, status, notes, created_at, updated_at) FROM stdin;
+COPY public.customers (id, code, name, phone, address, pppoe_username, pppoe_password, package_id, active_date, due_day, isolir_day, status, notes, created_at, updated_at, billing_type) FROM stdin;
 \.
 
 
@@ -345,7 +347,7 @@ mikrotik_user
 mikrotik_password	
 isolir_profile	ISOLIR
 timezone	Asia/Jakarta
-last_cycle_at	2026-10-26T16:28:22.211Z
+last_cycle_at	2026-10-26T22:58:51.274Z
 last_cycle_summary	0 invoice baru, 0 diisolir, 0 dibuka, 0 gagal
 company_name	James.NET
 company_phone	+62 818-0683-1996
@@ -550,5 +552,5 @@ ALTER TABLE ONLY public.invoices
 -- PostgreSQL database dump complete
 --
 
-\unrestrict GhzaKGC6vMr30KleH0qlddF7oCo8dtMc0RNnUaQuLancQSLqvaWamdwrVmB19Ma
+\unrestrict fqUIAZvDj1BFqwRxrv1QY6WG00SaWgtiN2wuVFMCRb4Mkhwh2TaMLEcDsItCK2Z
 

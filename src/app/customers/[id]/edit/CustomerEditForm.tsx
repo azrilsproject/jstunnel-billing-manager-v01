@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useState, useActionState } from 'react';
 import Link from 'next/link';
 import { updateCustomer, deleteCustomer } from '@/app/actions/customers';
 import { initialState } from '@/lib/action-state';
@@ -24,6 +24,7 @@ type Props = {
 export function CustomerEditForm({ customer, packages }: Props) {
   const [state, formAction] = useActionState(updateCustomer, initialState);
   const [deleteState, deleteAction] = useActionState(deleteCustomer, initialState);
+  const [billingType, setBillingType] = useState<'prepaid' | 'postpaid'>(customer.billing_type || 'prepaid');
 
   return (
     <div>
@@ -143,6 +144,83 @@ export function CustomerEditForm({ customer, packages }: Props) {
             <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
               3. Tanggal Aktif & Jadwal Isolir Bulanan
             </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
+              Pilih model penagihan (Prabayar / Pascabayar) dan tanggal siklus jatuh tempo & isolir.
+            </p>
+          </div>
+
+          {/* Pilihan Sistem Tagihan: Prabayar vs Pascabayar */}
+          <div className="form-group" style={{ marginBottom: '22px' }}>
+            <label className="form-label" style={{ marginBottom: '10px' }}>
+              Sistem Tagihan / Pembayaran *
+            </label>
+            <input type="hidden" name="billing_type" value={billingType} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+              {/* Card Prabayar */}
+              <div
+                onClick={() => setBillingType('prepaid')}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: billingType === 'prepaid' ? '2px solid #10b981' : '1px solid var(--border)',
+                  background: billingType === 'prepaid' ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-elevated)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>⚡</span>
+                    <strong style={{ fontSize: '14.5px', color: billingType === 'prepaid' ? '#10b981' : 'var(--text-main)' }}>
+                      Prabayar (Prepaid)
+                    </strong>
+                  </div>
+                  <input
+                    type="radio"
+                    name="_radio_billing_type"
+                    checked={billingType === 'prepaid'}
+                    onChange={() => setBillingType('prepaid')}
+                    style={{ accentColor: '#10b981', transform: 'scale(1.2)', cursor: 'pointer' }}
+                  />
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.45' }}>
+                  <strong>Ditagihkan di tanggal mulai aktif.</strong> Pelanggan membayar di muka sebelum/saat layanan aktif untuk periode bulan berjalan.
+                </div>
+              </div>
+
+              {/* Card Pascabayar */}
+              <div
+                onClick={() => setBillingType('postpaid')}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: billingType === 'postpaid' ? '2px solid #3b82f6' : '1px solid var(--border)',
+                  background: billingType === 'postpaid' ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-elevated)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>📅</span>
+                    <strong style={{ fontSize: '14.5px', color: billingType === 'postpaid' ? '#3b82f6' : 'var(--text-main)' }}>
+                      Pascabayar (Postpaid)
+                    </strong>
+                  </div>
+                  <input
+                    type="radio"
+                    name="_radio_billing_type"
+                    checked={billingType === 'postpaid'}
+                    onChange={() => setBillingType('postpaid')}
+                    style={{ accentColor: '#3b82f6', transform: 'scale(1.2)', cursor: 'pointer' }}
+                  />
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.45' }}>
+                  <strong>Ditagihkan bulan depan.</strong> Pelanggan menggunakan layanan terlebih dahulu, tagihan pertama baru terbit di bulan berikutnya.
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="form-row">
@@ -158,6 +236,11 @@ export function CustomerEditForm({ customer, packages }: Props) {
                 defaultValue={customer.active_date.slice(0, 10)}
                 className="form-input"
               />
+              <div className="form-help">
+                {billingType === 'prepaid'
+                  ? 'Tanggal aktivasi & sekaligus tanggal penagihan invoice pertama.'
+                  : 'Tanggal aktivasi awal pemakaian pelanggan.'}
+              </div>
             </div>
 
             <div className="form-group">
@@ -174,6 +257,11 @@ export function CustomerEditForm({ customer, packages }: Props) {
                 defaultValue={customer.due_day}
                 className="form-input font-mono"
               />
+              <div className="form-help">
+                {billingType === 'prepaid'
+                  ? 'Batas akhir pembayaran tagihan bulanan rutin.'
+                  : 'Batas akhir pembayaran tagihan rutin mulai bulan depan.'}
+              </div>
             </div>
 
             <div className="form-group">
@@ -189,7 +277,11 @@ export function CustomerEditForm({ customer, packages }: Props) {
                 required
                 defaultValue={customer.isolir_day}
                 className="form-input font-mono"
+                style={{ borderColor: 'rgba(239, 68, 68, 0.4)' }}
               />
+              <div className="form-help">
+                Jika belum lunas pada tanggal ini, akun otomatis diisolir ke profil ISOLIR di MikroTik.
+              </div>
             </div>
           </div>
 

@@ -19,6 +19,7 @@ export type CustomerWithPackage = {
   pppoe_username: string;
   pppoe_password: string;
   status: 'active' | 'isolated' | 'inactive';
+  billing_type: 'prepaid' | 'postpaid';
   active_date: string;
   due_day: number;
   isolir_day: number;
@@ -59,9 +60,9 @@ type GenerateOpts = {
 
 /**
  * Buat invoice bulanan.
- * Untuk tiap pelanggan aktif/terisolir, cek bulan ini & bulan depan:
- * invoice dibuat jika hari ini >= (jatuh tempo - invoice_days_before) dan belum ada invoice periode tsb.
- * Periode yang jatuh temponya sebelum tanggal aktif pelanggan dilewati.
+ * Mendukung model:
+ * - Prabayar (Prepaid): ditagihkan di muka pada tanggal mulai aktif (periode bulan aktif).
+ * - Pascabayar (Postpaid): pemakaian dulu, tagihan pertama baru terbit bulan depan.
  */
 export async function generateInvoices(opts: GenerateOpts = {}) {
   const today = opts.today ?? todayStr();
@@ -80,12 +81,37 @@ export async function generateInvoices(opts: GenerateOpts = {}) {
   const created: string[] = [];
 
   for (const c of customers) {
+    const activeYM = parseDate(c.active_date);
+
     for (const offset of [0, 1]) {
       const ym = addMonths(y, m, offset);
-      const sched = computeSchedule(ym.y, ym.m, c.due_day, c.isolir_day);
-      if (sched.dueDate < c.active_date) continue;
+      const isActivationMonth = ym.y === activeYM.y && ym.m === activeYM.m;
 
-      const windowOpen = today >= addDays(sched.dueDate, -daysBefore);
+      // Aturan Pascabayar: ditagihkan bulan depan (bulan setelah mulai aktif)
+      if (c.billing_type === 'postpaid') {
+        if (isActivationMonth && !opts.force) {
+          continue;
+        }
+      }
+
+      const sched = computeSchedule(ym.y, ym.m, c.due_day, c.isolir_day);
+
+      // Aturan Prabayar: ditagihkan di tanggal mulai aktif
+      let dueDate = sched.dueDate;
+      let isolirDate = sched.isolirDate;
+      if (isActivationMonth && c.billing_type !== 'postpaid') {
+        if (dueDate < c.active_date) {
+          dueDate = c.active_date;
+          if (isolirDate <= dueDate) {
+            const gap = c.isolir_day >= c.due_day ? c.isolir_day - c.due_day : 5;
+            isolirDate = addDays(c.active_date, Math.max(1, gap));
+          }
+        }
+      } else if (sched.dueDate < c.active_date) {
+        continue;
+      }
+
+      const windowOpen = today >= addDays(dueDate, -daysBefore);
       const forced = opts.force && offset === 0;
       if (!windowOpen && !forced) continue;
 
@@ -95,14 +121,15 @@ export async function generateInvoices(opts: GenerateOpts = {}) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (customer_id, period) DO NOTHING
          RETURNING number`,
-        [number, c.id, sched.period, c.package_name, c.price, today, sched.dueDate, sched.isolirDate],
+        [number, c.id, sched.period, c.package_name, c.price, today, dueDate, isolirDate],
       );
       if (res.length) {
         created.push(number);
+        const tipeStr = c.billing_type === 'postpaid' ? 'Pascabayar' : 'Prabayar';
         await logActivity(
           'info',
           'invoice.create',
-          `Invoice ${number} (${periodLabel(sched.period)}) dibuat untuk ${c.name}`,
+          `Invoice ${number} (${periodLabel(sched.period)}) dibuat untuk ${c.name} [${tipeStr}]`,
           c.id,
         );
       }

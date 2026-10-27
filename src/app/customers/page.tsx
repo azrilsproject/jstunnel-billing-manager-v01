@@ -34,6 +34,7 @@ export default async function CustomersPage({ searchParams }: Props) {
     phone: string | null;
     pppoe_username: string;
     status: 'active' | 'isolated' | 'inactive';
+    billing_type: 'prepaid' | 'postpaid';
     active_date: string;
     due_day: number;
     isolir_day: number;
@@ -41,7 +42,7 @@ export default async function CustomersPage({ searchParams }: Props) {
     package_price: number;
   }>(`
     SELECT 
-      c.id, c.code, c.name, c.phone, c.pppoe_username, c.status,
+      c.id, c.code, c.name, c.phone, c.pppoe_username, c.status, c.billing_type,
       c.active_date, c.due_day, c.isolir_day,
       p.name AS package_name, p.price AS package_price
     FROM customers c
@@ -150,7 +151,23 @@ export default async function CustomersPage({ searchParams }: Props) {
                     <code className="font-mono" style={{ color: '#059669', fontWeight: 600 }}>{c.pppoe_username}</code>
                   </td>
                   <td>
-                    <div style={{ color: 'var(--text-main)', fontWeight: 600 }}>{c.package_name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ color: 'var(--text-main)', fontWeight: 600 }}>{c.package_name}</div>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          background: c.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                          color: c.billing_type === 'postpaid' ? '#2563eb' : '#059669',
+                          border: `1px solid ${c.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+                        }}
+                        title={c.billing_type === 'postpaid' ? 'Pascabayar (Ditagihkan bulan depan)' : 'Prabayar (Ditagihkan di tanggal aktif)'}
+                      >
+                        {c.billing_type === 'postpaid' ? 'Pasca' : 'Pra'}
+                      </span>
+                    </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{rupiah(c.package_price)}/bln</div>
                   </td>
                   <td>

@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS customers (
   due_day         SMALLINT NOT NULL CHECK (due_day BETWEEN 1 AND 31),
   -- tanggal isolir tiap bulan. Jika < due_day berarti bulan berikutnya
   isolir_day      SMALLINT NOT NULL CHECK (isolir_day BETWEEN 1 AND 31),
+  -- tipe pembayaran: prabayar (tagih di tgl aktif) atau pascabayar (tagih bulan depan)
+  billing_type    TEXT NOT NULL DEFAULT 'prepaid' CHECK (billing_type IN ('prepaid', 'postpaid')),
   status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'isolated', 'inactive')),
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -80,3 +82,6 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 );
 
 CREATE INDEX IF NOT EXISTS activity_logs_created_idx ON activity_logs (created_at DESC);
+
+-- Migrasi kolom billing_type untuk database yang sudah berjalan
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS billing_type TEXT NOT NULL DEFAULT 'prepaid' CHECK (billing_type IN ('prepaid', 'postpaid'));

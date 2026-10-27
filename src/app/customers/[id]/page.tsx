@@ -73,11 +73,22 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
           <Link href="/customers" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
             ← Kembali ke Daftar Pelanggan
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
             <h1 className="page-title">{customer.name}</h1>
             <span className={`badge ${customer.status === 'active' ? 'badge-active' : customer.status === 'isolated' ? 'badge-isolated' : 'badge-inactive'}`}>
               <span className="badge-dot" />
               {customer.status === 'active' ? 'Layanan Aktif' : customer.status === 'isolated' ? 'Layanan Terisolir' : 'Berhenti'}
+            </span>
+            <span
+              className="badge"
+              style={{
+                background: customer.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                color: customer.billing_type === 'postpaid' ? '#3b82f6' : '#10b981',
+                borderColor: customer.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                fontWeight: 700,
+              }}
+            >
+              {customer.billing_type === 'postpaid' ? '📅 Pascabayar' : '⚡ Prabayar'}
             </span>
           </div>
           <p className="page-desc">
@@ -184,6 +195,12 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
             Jadwal Penagihan & Isolir
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13.5px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Sistem Tagihan</span>
+              <strong style={{ color: customer.billing_type === 'postpaid' ? '#3b82f6' : '#10b981' }}>
+                {customer.billing_type === 'postpaid' ? '📅 Pascabayar (Ditagihkan bulan depan)' : '⚡ Prabayar (Ditagihkan di tanggal aktif)'}
+              </strong>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
               <span style={{ color: 'var(--text-muted)' }}>Tanggal Pemasangan / Aktif</span>
               <strong style={{ color: '#fff' }}>{formatDate(customer.active_date)}</strong>

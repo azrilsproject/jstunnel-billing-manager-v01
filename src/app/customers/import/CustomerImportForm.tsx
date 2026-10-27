@@ -379,6 +379,12 @@ export function CustomerImportForm() {
                 <td>Nama paket langganan / profile MikroTik</td>
               </tr>
               <tr>
+                <td><strong>Sistem Tagihan</strong></td>
+                <td><span className="badge badge-secondary">Opsional</span></td>
+                <td>Prabayar</td>
+                <td>Isi &apos;Prabayar&apos; (tagih di tgl aktif) atau &apos;Pascabayar&apos; (tagih bulan depan)</td>
+              </tr>
+              <tr>
                 <td><strong>Telepon</strong></td>
                 <td><span className="badge badge-secondary">Opsional</span></td>
                 <td>(kosong)</td>

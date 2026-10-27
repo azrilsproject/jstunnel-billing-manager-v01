@@ -22,6 +22,7 @@ import { parseCsv } from '@/lib/csv';
 const USERNAME_RE = /^[A-Za-z0-9._@-]+$/;
 
 function parseCustomer(fd: FormData) {
+  const bType = str(fd, 'billing_type');
   const data = {
     name: str(fd, 'name'),
     phone: str(fd, 'phone'),
@@ -29,6 +30,7 @@ function parseCustomer(fd: FormData) {
     pppoe_username: str(fd, 'pppoe_username'),
     pppoe_password: str(fd, 'pppoe_password'),
     package_id: int(fd, 'package_id'),
+    billing_type: (bType === 'postpaid' ? 'postpaid' : 'prepaid') as 'prepaid' | 'postpaid',
     active_date: str(fd, 'active_date'),
     due_day: int(fd, 'due_day'),
     isolir_day: int(fd, 'isolir_day'),
@@ -63,15 +65,16 @@ export async function createCustomer(_prev: ActionState, fd: FormData): Promise<
 
   const row = await queryOne<{ id: number; code: string }>(
     `INSERT INTO customers (name, phone, address, pppoe_username, pppoe_password, package_id,
-                            active_date, due_day, isolir_day, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, code`,
+                            billing_type, active_date, due_day, isolir_day, notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, code`,
     [
       data.name, data.phone || null, data.address || null, data.pppoe_username, data.pppoe_password,
-      data.package_id, data.active_date, data.due_day, data.isolir_day, data.notes || null,
+      data.package_id, data.billing_type, data.active_date, data.due_day, data.isolir_day, data.notes || null,
     ],
   );
   const id = row!.id;
-  await logActivity('success', 'customer.create', `Pelanggan ${row!.code} - ${data.name} ditambahkan`, id);
+  const tipeStr = data.billing_type === 'postpaid' ? 'Pascabayar' : 'Prabayar';
+  await logActivity('success', 'customer.create', `Pelanggan ${row!.code} - ${data.name} (${tipeStr}) ditambahkan`, id);
 
   const msgs: string[] = ['Pelanggan ditambahkan'];
   if (fd.get('sync_mikrotik') === 'on') {
@@ -79,8 +82,12 @@ export async function createCustomer(_prev: ActionState, fd: FormData): Promise<
     msgs.push(r.message);
   }
   if (fd.get('create_invoice') === 'on') {
-    const r = await generateInvoices({ customerId: id, force: true });
-    if (r.created.length) msgs.push(`Invoice ${r.created.join(', ')} dibuat`);
+    if (data.billing_type === 'postpaid') {
+      msgs.push('Pascabayar: Tagihan pertama akan terbit bulan depan');
+    } else {
+      const r = await generateInvoices({ customerId: id, force: true });
+      if (r.created.length) msgs.push(`Invoice ${r.created.join(', ')} dibuat`);
+    }
   }
   revalidateCustomer(id);
   redirect(`/customers/${id}?msg=${encodeURIComponent(msgs.join('. '))}`);
@@ -102,11 +109,11 @@ export async function updateCustomer(_prev: ActionState, fd: FormData): Promise<
 
   await query(
     `UPDATE customers SET name=$1, phone=$2, address=$3, pppoe_username=$4, pppoe_password=$5,
-       package_id=$6, active_date=$7, due_day=$8, isolir_day=$9, notes=$10, updated_at=now()
-     WHERE id=$11`,
+       package_id=$6, billing_type=$7, active_date=$8, due_day=$9, isolir_day=$10, notes=$11, updated_at=now()
+     WHERE id=$12`,
     [
       data.name, data.phone || null, data.address || null, data.pppoe_username, data.pppoe_password,
-      data.package_id, data.active_date, data.due_day, data.isolir_day, data.notes || null, id,
+      data.package_id, data.billing_type, data.active_date, data.due_day, data.isolir_day, data.notes || null, id,
     ],
   );
   await logActivity('info', 'customer.update', `Data pelanggan ${before.code} - ${data.name} diperbarui`, id);
@@ -337,6 +344,7 @@ export async function importCustomersCsvAction(
   const dueIdx = findCol('tempo', 'due');
   const isolirIdx = findCol('isolir');
   const notesIdx = findCol('catatan', 'note', 'keterangan');
+  const billingTypeIdx = findCol('tipe', 'sistem', 'billing', 'prabayar', 'pascabayar');
 
   if (nameIdx === -1 || userIdx === -1) {
     return {
@@ -379,6 +387,8 @@ export async function importCustomersCsvAction(
     const username = (userIdx !== -1 ? row[userIdx] : '') || '';
     const password = (passIdx !== -1 ? row[passIdx] : '') || '123456';
     const pkgName = (pkgIdx !== -1 ? row[pkgIdx] : '') || 'Default';
+    const bTypeRaw = (billingTypeIdx !== -1 ? row[billingTypeIdx] : '').toLowerCase();
+    const billingType = bTypeRaw.includes('pasca') || bTypeRaw.includes('post') ? 'postpaid' : 'prepaid';
     const activeDateRaw = (activeIdx !== -1 ? row[activeIdx] : '') || today;
     const dueDayRaw = dueIdx !== -1 ? parseInt(row[dueIdx], 10) : 10;
     const isolirDayRaw = isolirIdx !== -1 ? parseInt(row[isolirIdx], 10) : 15;
@@ -434,8 +444,8 @@ export async function importCustomersCsvAction(
       const res = await queryOne<{ id: number; code: string }>(
         `INSERT INTO customers (
           name, phone, address, pppoe_username, pppoe_password, package_id,
-          active_date, due_day, isolir_day, status, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10)
+          billing_type, active_date, due_day, isolir_day, status, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', $11)
         RETURNING id, code`,
         [
           name.trim(),
@@ -444,6 +454,7 @@ export async function importCustomersCsvAction(
           cleanUsername,
           password.trim(),
           pkg.id,
+          billingType,
           activeDate,
           dueDay,
           isolirDay,

@@ -17,6 +17,7 @@ export async function GET(_req: NextRequest) {
       pppoe_password: string;
       package_name: string;
       package_price: number;
+      billing_type: string;
       active_date: string;
       due_day: number;
       isolir_day: number;
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest) {
       SELECT 
         c.code, c.name, c.phone, c.address, c.pppoe_username, c.pppoe_password,
         p.name AS package_name, p.price AS package_price,
-        c.active_date, c.due_day, c.isolir_day, c.status, c.notes
+        c.billing_type, c.active_date, c.due_day, c.isolir_day, c.status, c.notes
       FROM customers c
       JOIN packages p ON p.id = c.package_id
       ORDER BY c.created_at ASC
@@ -41,6 +42,7 @@ export async function GET(_req: NextRequest) {
       'PPPoE Password',
       'Paket Internet',
       'Harga Paket',
+      'Sistem Tagihan',
       'Tanggal Aktif',
       'Tgl Jatuh Tempo',
       'Tgl Isolir',
@@ -57,6 +59,7 @@ export async function GET(_req: NextRequest) {
       c.pppoe_password,
       c.package_name,
       c.package_price,
+      c.billing_type === 'postpaid' ? 'Pascabayar' : 'Prabayar',
       formatDate(c.active_date),
       c.due_day,
       c.isolir_day,
