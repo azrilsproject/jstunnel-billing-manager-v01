@@ -595,6 +595,18 @@ tr:hover td {
   border: 1px solid rgba(156, 163, 175, 0.2);
 }
 
+.badge-danger {
+  background: var(--danger-bg);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.badge-secondary {
+  background: rgba(156, 163, 175, 0.12);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.2);
+}
+
 /* Forms */
 .form-group {
   margin-bottom: 20px;
@@ -988,14 +1000,14 @@ tr:hover td {
 }
 
 /* 2. Catch all inline white / light-grey colors and map them to dark text */
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #fff"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #ffffff"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: rgb(255, 255, 255)"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: white"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #f9fafb"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #f3f4f6"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #e5e7eb"],
-[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge-active):not(.date-chip-danger)[style*="color: #e2e8f0"] {
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #fff"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #ffffff"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: rgb(255, 255, 255)"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: white"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #f9fafb"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #f3f4f6"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #e5e7eb"],
+[data-theme="light"] *:not(.btn-primary):not(.btn-primary *):not(.btn-success):not(.btn-success *):not(.btn-danger):not(.btn-danger *):not(.btn-wa):not(.btn-wa *):not(.sidebar-brand-icon):not(.badge):not(.badge *):not(.date-chip-danger)[style*="color: #e2e8f0"] {
   color: #0f172a !important;
 }
 
@@ -1008,8 +1020,7 @@ tr:hover td {
 [data-theme="light"] .btn-danger:hover *,
 [data-theme="light"] .btn-wa,
 [data-theme="light"] .btn-wa *,
-[data-theme="light"] .sidebar-brand-icon,
-[data-theme="light"] .badge-active {
+[data-theme="light"] .sidebar-brand-icon {
   color: #ffffff !important;
 }
 
@@ -1091,36 +1102,6 @@ tr:hover td {
   color: #475569 !important;
 }
 
-[data-theme="light"] .badge-unpaid {
-  background: rgba(217, 119, 6, 0.1);
-  color: #b45309;
-  border-color: rgba(217, 119, 6, 0.3);
-}
-
-[data-theme="light"] .badge-paid {
-  background: rgba(5, 150, 105, 0.1);
-  color: #047857;
-  border-color: rgba(5, 150, 105, 0.3);
-}
-
-[data-theme="light"] .date-chip-warning {
-  color: #b45309 !important;
-  background: rgba(217, 119, 6, 0.1) !important;
-  border-color: rgba(217, 119, 6, 0.3) !important;
-}
-
-[data-theme="light"] .date-chip-danger {
-  color: #b91c1c !important;
-  background: rgba(220, 38, 38, 0.1) !important;
-  border-color: rgba(220, 38, 38, 0.3) !important;
-}
-
-[data-theme="light"] .btn-static-paid {
-  color: #047857;
-  background: rgba(5, 150, 105, 0.08);
-  border-color: rgba(5, 150, 105, 0.25);
-}
-
 /* 5. Alerts, Badges & Chips in Light Mode */
 [data-theme="light"] .alert-success {
   background: #ecfdf5;
@@ -1143,24 +1124,133 @@ tr:hover td {
   font-weight: 500;
 }
 
+/* Badges Light Mode - High Contrast, Crisp & Readable */
+[data-theme="light"] .badge-active {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-active,
+[data-theme="light"] .badge-active *,
+[data-theme="light"] .badge-active span:not(.badge-dot) {
+  color: #065f46 !important;
+}
+[data-theme="light"] .badge-active .badge-dot {
+  background: #059669 !important;
+}
+
+[data-theme="light"] .badge-paid {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-paid,
+[data-theme="light"] .badge-paid *,
+[data-theme="light"] .badge-paid span:not(.badge-dot) {
+  color: #065f46 !important;
+}
+[data-theme="light"] .badge-paid .badge-dot {
+  background: #059669 !important;
+}
+
+[data-theme="light"] .badge-unpaid {
+  background: #fffbeb !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-unpaid,
+[data-theme="light"] .badge-unpaid *,
+[data-theme="light"] .badge-unpaid span:not(.badge-dot) {
+  color: #92400e !important;
+}
+[data-theme="light"] .badge-unpaid .badge-dot {
+  background: #d97706 !important;
+}
+
 [data-theme="light"] .badge-isolated {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
-  font-weight: 600;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-isolated,
+[data-theme="light"] .badge-isolated *,
+[data-theme="light"] .badge-isolated span:not(.badge-dot) {
+  color: #991b1b !important;
+}
+[data-theme="light"] .badge-isolated .badge-dot {
+  background: #dc2626 !important;
 }
 
-[data-theme="light"] .badge-inactive {
-  background: #f1f5f9;
-  color: #475569;
-  border-color: #cbd5e1;
-  font-weight: 600;
+[data-theme="light"] .badge-inactive,
+[data-theme="light"] .badge-void {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-inactive,
+[data-theme="light"] .badge-inactive *,
+[data-theme="light"] .badge-void,
+[data-theme="light"] .badge-void * {
+  color: #334155 !important;
+}
+[data-theme="light"] .badge-inactive .badge-dot,
+[data-theme="light"] .badge-void .badge-dot {
+  background: #64748b !important;
 }
 
+[data-theme="light"] .badge-danger {
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-danger,
+[data-theme="light"] .badge-danger * {
+  color: #991b1b !important;
+}
+
+[data-theme="light"] .badge-secondary {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .badge-secondary,
+[data-theme="light"] .badge-secondary * {
+  color: #334155 !important;
+}
+
+/* Date Chips */
 [data-theme="light"] .date-chip {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #334155;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 600;
+}
+
+[data-theme="light"] .date-chip-warning {
+  color: #92400e !important;
+  background: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  font-weight: 600;
+}
+
+[data-theme="light"] .date-chip-danger {
+  color: #991b1b !important;
+  background: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 600;
+}
+
+[data-theme="light"] .btn-static-paid {
+  color: #065f46 !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
 }
 
 [data-theme="light"] .nav-category {
