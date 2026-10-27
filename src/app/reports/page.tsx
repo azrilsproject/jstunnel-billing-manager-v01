@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import { formatDate, formatDateTime, monthOptions, periodLabel, todayStr } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { getSettings } from '@/lib/settings';
-import { ReportPrintButton } from '@/components/ReportPrintButton';
+import { ReportViewContainer } from '@/components/ReportViewContainer';
 
 type Props = {
   searchParams: Promise<{
@@ -17,7 +17,7 @@ type Props = {
 };
 
 export default async function ReportsPage({ searchParams }: Props) {
-  await verifySession();
+  const session = await verifySession();
   const sp = await searchParams;
 
   const today = todayStr();
@@ -60,34 +60,29 @@ export default async function ReportsPage({ searchParams }: Props) {
     where += ` AND (i.number ILIKE $${params.length} OR c.name ILIKE $${params.length} OR c.code ILIKE $${params.length} OR c.pppoe_username ILIKE $${params.length})`;
   }
 
-  const settings = await getSettings();
-
   const invoices = await query<{
     id: number;
     number: string;
+    status: 'paid' | 'unpaid' | 'void';
     period: string;
     package_name: string;
     amount: number;
     issue_date: string;
     due_date: string;
-    isolir_date: string;
-    status: 'unpaid' | 'paid' | 'void';
     paid_at: string | null;
     payment_method: string | null;
     customer_id: number;
     customer_name: string;
     customer_code: string;
-    customer_phone: string | null;
     pppoe_username: string;
     billing_type: 'prepaid' | 'postpaid';
     admin_name: string | null;
   }>(`
     SELECT 
-      i.id, i.number, i.period, i.package_name, i.amount,
-      i.issue_date, i.due_date, i.isolir_date, i.status,
-      i.paid_at, i.payment_method,
+      i.id, i.number, i.status, i.period, i.package_name, i.amount,
+      i.issue_date, i.due_date, i.paid_at, i.payment_method,
       c.id AS customer_id, c.name AS customer_name, c.code AS customer_code,
-      c.phone AS customer_phone, c.pppoe_username, c.billing_type,
+      c.pppoe_username, c.billing_type,
       a.name AS admin_name
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
@@ -96,25 +91,23 @@ export default async function ReportsPage({ searchParams }: Props) {
     ORDER BY (CASE WHEN i.paid_at IS NOT NULL THEN i.paid_at ELSE i.created_at END) DESC
   `, params);
 
-  // Perhitungan Ringkasan / Metrik KPI
-  let totalGross = 0;
-  let totalPaid = 0;
-  let totalUnpaid = 0;
-  let totalVoid = 0;
+  const settings = await getSettings();
 
+  // Hitung Agregat Finansial
+  let totalPaid = 0;
   let paidCount = 0;
+  let totalUnpaid = 0;
   let unpaidCount = 0;
+  let totalGross = 0;
   let voidCount = 0;
 
-  // Breakdown metode bayar
-  const methodMap: Record<string, { count: number; total: number }> = {};
-  // Breakdown paket
-  const packageMap: Record<string, { count: number; total: number; paidCount: number; paidTotal: number }> = {};
-  // Breakdown sistem tagihan
-  let prepaidCount = 0;
   let prepaidPaid = 0;
-  let postpaidCount = 0;
+  let prepaidCount = 0;
   let postpaidPaid = 0;
+  let postpaidCount = 0;
+
+  const methodMap: Record<string, { count: number; total: number }> = {};
+  const packageMap: Record<string, { count: number; total: number; paidCount: number; paidTotal: number }> = {};
 
   for (const inv of invoices) {
     totalGross += inv.amount;
@@ -123,28 +116,23 @@ export default async function ReportsPage({ searchParams }: Props) {
       totalPaid += inv.amount;
       paidCount++;
 
-      const m = inv.payment_method || 'Lainnya / Tidak Tercatat';
+      const m = inv.payment_method || 'Lainnya';
       if (!methodMap[m]) methodMap[m] = { count: 0, total: 0 };
       methodMap[m].count++;
       methodMap[m].total += inv.amount;
 
-      if (inv.billing_type === 'postpaid') {
-        postpaidPaid += inv.amount;
-      } else {
+      if (inv.billing_type === 'prepaid') {
         prepaidPaid += inv.amount;
+        prepaidCount++;
+      } else {
+        postpaidPaid += inv.amount;
+        postpaidCount++;
       }
     } else if (inv.status === 'unpaid') {
       totalUnpaid += inv.amount;
       unpaidCount++;
     } else if (inv.status === 'void') {
-      totalVoid += inv.amount;
       voidCount++;
-    }
-
-    if (inv.billing_type === 'postpaid') {
-      postpaidCount++;
-    } else {
-      prepaidCount++;
     }
 
     const pkg = inv.package_name || 'Lainnya';
@@ -168,35 +156,27 @@ export default async function ReportsPage({ searchParams }: Props) {
   const exportUrl = `/api/reports/export?${exportParams.toString()}`;
 
   const currentPeriodTitle = period ? periodLabel(period + '-01') : 'Semua Periode';
+  const filterStatusLabel = status
+    ? status === 'paid'
+      ? 'Khusus Lunas'
+      : status === 'unpaid'
+      ? 'Khusus Belum Bayar'
+      : 'Khusus Batal'
+    : 'Semua Status';
+  const filterMethodLabel = method || 'Semua Metode';
+  const filterTypeLabel = billingType
+    ? billingType === 'prepaid'
+      ? '⚡ Prabayar'
+      : '📅 Pascabayar'
+    : 'Semua Model';
 
-  return (
+  // ==========================================
+  // VIEW 1: INTERACTIVE SCREEN CONTENT
+  // ==========================================
+  const screenContent = (
     <div>
-      {/* 1. Header (Hidden on Print) */}
-      <div className="page-header no-print">
-        <div>
-          <h1 className="page-title">📈 Laporan Keuangan & Penagihan</h1>
-          <p className="page-desc">
-            Rekapitulasi pendapatan kas masuk, piutang tertunggak, sebaran paket, dan rincian transaksi.
-          </p>
-        </div>
-
-        <div className="header-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <ReportPrintButton />
-          <a
-            href={exportUrl}
-            className="btn btn-secondary"
-            download
-            title="Download laporan transaksi dalam format file CSV / Excel"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
-          >
-            <span>📥</span>
-            <span>Export CSV</span>
-          </a>
-        </div>
-      </div>
-
-      {/* 2. Filter Bar (Hidden on Print) */}
-      <div className="card no-print" style={{ padding: '16px 20px', marginBottom: '24px' }}>
+      {/* Filter Bar */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
         <form method="GET" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div>
             <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
@@ -276,39 +256,8 @@ export default async function ReportsPage({ searchParams }: Props) {
         </form>
       </div>
 
-      {/* 3. Lembar Kop Resmi Laporan (Muncul Khusus Saat Print) */}
-      <div className="report-print-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #1e293b', paddingBottom: '14px', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px' }}>
-              {settings.company_name || 'JAMES NET'}
-            </div>
-            <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
-              {settings.company_address || 'Penyedia Layanan Internet & Jaringan PPPoE'}
-            </div>
-            {settings.company_phone && (
-              <div style={{ fontSize: '12px', color: '#475569' }}>
-                Kontak: {settings.company_phone}
-              </div>
-            )}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
-              LAPORAN KEUANGAN & PENAGIHAN
-            </div>
-            <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#2563eb', marginTop: '2px' }}>
-              Periode: {currentPeriodTitle}
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-              Dicetak pada: {formatDate(today)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. KPI Summary Cards */}
+      {/* KPI Summary Cards */}
       <div className="stat-grid" style={{ marginBottom: '24px' }}>
-        {/* Kas Masuk */}
         <div className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
           <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
             💰
@@ -322,7 +271,6 @@ export default async function ReportsPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* Piutang Tertunggak */}
         <div className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
           <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
             ⏳
@@ -336,7 +284,6 @@ export default async function ReportsPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* Total Terbit (Gross) */}
         <div className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
           <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
             📊
@@ -350,7 +297,6 @@ export default async function ReportsPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* Tingkat Ketagihan */}
         <div className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
           <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}>
             🎯
@@ -365,11 +311,11 @@ export default async function ReportsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {/* 5. Breakdown Analytics Section */}
+      {/* Breakdown Analytics Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '28px' }}>
-        {/* Breakdown Metode Pembayaran */}
+        {/* Metode Bayar */}
         <div className="card">
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>💳</span>
             <span>Rincian Berdasarkan Metode Bayar</span>
           </h2>
@@ -401,39 +347,37 @@ export default async function ReportsPage({ searchParams }: Props) {
           )}
         </div>
 
-        {/* Breakdown Paket Internet & Tipe Tagihan */}
+        {/* Model Tagihan & Paket */}
         <div className="card">
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>📦</span>
             <span>Rincian Paket & Model Tagihan</span>
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* Box Prabayar vs Pascabayar */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '4px' }}>
               <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>⚡ Prabayar</div>
                 <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{rupiah(prepaidPaid)}</div>
-                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>{prepaidCount} tagihan ({prepaidPaid > 0 ? `${Math.round((prepaidPaid/totalPaid)*100)}% kas` : '0%'})</div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>{prepaidCount} tagihan ({totalPaid > 0 ? `${Math.round((prepaidPaid/totalPaid)*100)}% kas` : '0%'})</div>
               </div>
 
               <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase' }}>📅 Pascabayar</div>
                 <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>{rupiah(postpaidPaid)}</div>
-                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>{postpaidCount} tagihan ({postpaidPaid > 0 ? `${Math.round((postpaidPaid/totalPaid)*100)}% kas` : '0%'})</div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>{postpaidCount} tagihan ({totalPaid > 0 ? `${Math.round((postpaidPaid/totalPaid)*100)}% kas` : '0%'})</div>
               </div>
             </div>
 
-            {/* List Paket Teratas */}
             {Object.entries(packageMap).map(([pkgName, pkgData]) => (
               <div key={pkgName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <div>
                   <strong style={{ color: 'var(--text-main)' }}>{pkgName}</strong>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>{pkgData.paidCount}/{pkgData.count} lunas</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{pkgData.paidCount} lunas dari {pkgData.count} invoice</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontWeight: 700, color: '#10b981' }}>{rupiah(pkgData.paidTotal)}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>potensi: {rupiah(pkgData.total)}</div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-dim)' }}>Gross: {rupiah(pkgData.total)}</div>
                 </div>
               </div>
             ))}
@@ -441,11 +385,11 @@ export default async function ReportsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {/* 6. Tabel Rincian Transaksi */}
+      {/* Tabel Interaktif */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0 }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
               Daftar Rincian Transaksi ({invoices.length} Data)
             </h2>
             <div style={{ fontSize: '12.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
@@ -567,29 +511,246 @@ export default async function ReportsPage({ searchParams }: Props) {
           </table>
         </div>
       </div>
+    </div>
+  );
 
-      {/* 7. Kolom Tanda Tangan Cetak (Muncul Khusus Saat Print) */}
-      <div className="report-print-signature">
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', padding: '0 30px' }}>
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontSize: '12px', color: '#475569', marginBottom: '60px' }}>
-              Mengetahui,<br />Pimpinan / Direktur
-            </div>
-            <div style={{ borderBottom: '1px solid #334155', fontWeight: 700, paddingBottom: '4px' }}>
-              ( ........................................ )
-            </div>
+  // ==========================================
+  // VIEW 2: FORMAL A4 PRINTABLE DOCUMENT SHEET
+  // ==========================================
+  const printContent = (
+    <div className="report-print-sheet">
+      {/* Kop Surat Formal */}
+      <div className="report-kop">
+        <div>
+          <div className="report-kop-brand">
+            {settings.company_name || 'JAMES NET'}
           </div>
+          <div className="report-kop-desc">
+            {settings.company_address || 'Penyedia Jasa Layanan Internet (ISP) & Manajemen Jaringan PPPoE'}
+          </div>
+          {settings.company_phone && (
+            <div className="report-kop-contact">
+              Kontak Layanan: {settings.company_phone}
+            </div>
+          )}
+        </div>
 
-          <div style={{ textAlign: 'center', width: '220px' }}>
-            <div style={{ fontSize: '12px', color: '#475569', marginBottom: '60px' }}>
-              Dibuat Oleh,<br />Staff Keuangan & Kasir
-            </div>
-            <div style={{ borderBottom: '1px solid #334155', fontWeight: 700, paddingBottom: '4px' }}>
-              ( ........................................ )
-            </div>
+        <div className="report-kop-meta">
+          <div className="report-kop-title">
+            LAPORAN KEUANGAN & REALISASI PENAGIHAN
+          </div>
+          <div className="report-kop-subtitle">
+            Periode: {currentPeriodTitle}
+          </div>
+          <div className="report-kop-info">
+            Filter: {filterStatusLabel} • {filterTypeLabel} • {filterMethodLabel}
+          </div>
+          <div className="report-kop-info">
+            Dicetak: {formatDate(today)} • Oleh: <strong>{session.name}</strong>
           </div>
         </div>
       </div>
+
+      {/* Ringkasan Finansial Eksekutif */}
+      <div className="report-summary-grid">
+        <div className="report-summary-box">
+          <div className="report-summary-title">Kas Masuk (Lunas)</div>
+          <div className="report-summary-val" style={{ color: '#15803d' }}>
+            {rupiah(totalPaid)}
+          </div>
+          <div className="report-summary-sub">
+            {paidCount} transaksi berhasil dibayar
+          </div>
+        </div>
+
+        <div className="report-summary-box">
+          <div className="report-summary-title">Piutang Tertunggak</div>
+          <div className="report-summary-val" style={{ color: '#b45309' }}>
+            {rupiah(totalUnpaid)}
+          </div>
+          <div className="report-summary-sub">
+            {unpaidCount} tagihan belum dibayar
+          </div>
+        </div>
+
+        <div className="report-summary-box">
+          <div className="report-summary-title">Total Tagihan Terbit</div>
+          <div className="report-summary-val">
+            {rupiah(totalGross)}
+          </div>
+          <div className="report-summary-sub">
+            {invoices.length} total invoice periode ini
+          </div>
+        </div>
+
+        <div className="report-summary-box">
+          <div className="report-summary-title">Tingkat Kolektibilitas</div>
+          <div className="report-summary-val" style={{ color: '#1d4ed8' }}>
+            {collectionRate}%
+          </div>
+          <div className="report-summary-sub">
+            {voidCount > 0 ? `${voidCount} invoice dibatalkan` : 'Persentase keberhasilan bayar'}
+          </div>
+        </div>
+      </div>
+
+      {/* Rincian Operasional Bar */}
+      <div className="report-breakdown-bar">
+        <div className="report-breakdown-col">
+          <div className="report-breakdown-title">Realisasi per Metode Pembayaran:</div>
+          <div className="report-breakdown-items">
+            {Object.keys(methodMap).length === 0 ? (
+              <span style={{ color: '#64748b' }}>Belum ada penerimaan kas.</span>
+            ) : (
+              Object.entries(methodMap).map(([mName, mData]) => (
+                <span key={mName} className="report-breakdown-item">
+                  • {mName}: <strong>{rupiah(mData.total)}</strong> ({mData.count} trx)
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="report-breakdown-col" style={{ maxWidth: '380px' }}>
+          <div className="report-breakdown-title">Realisasi per Model Berlangganan:</div>
+          <div className="report-breakdown-items">
+            <span className="report-breakdown-item">
+              ⚡ Prabayar: <strong>{rupiah(prepaidPaid)}</strong> ({prepaidCount} trx)
+            </span>
+            <span className="report-breakdown-item">
+              📅 Pascabayar: <strong>{rupiah(postpaidPaid)}</strong> ({postpaidCount} trx)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabel Transaksi Formal Buku Kas */}
+      <table className="report-table-print">
+        <thead>
+          <tr>
+            <th style={{ width: '28px', textAlign: 'center' }}>No</th>
+            <th style={{ width: '100px', textAlign: 'left' }}>No. Invoice</th>
+            <th style={{ width: '75px', textAlign: 'left' }}>Tgl Terbit</th>
+            <th style={{ width: '75px', textAlign: 'left' }}>Tgl Bayar</th>
+            <th style={{ textAlign: 'left' }}>Pelanggan</th>
+            <th style={{ width: '90px', textAlign: 'left' }}>User PPPoE</th>
+            <th style={{ width: '95px', textAlign: 'left' }}>Paket</th>
+            <th style={{ width: '55px', textAlign: 'center' }}>Model</th>
+            <th style={{ width: '85px', textAlign: 'left' }}>Metode</th>
+            <th style={{ width: '75px', textAlign: 'left' }}>Kasir</th>
+            <th style={{ width: '65px', textAlign: 'center' }}>Status</th>
+            <th style={{ width: '95px', textAlign: 'right' }}>Nominal (Rp)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.length === 0 ? (
+            <tr>
+              <td colSpan={12} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                Tidak ada data invoice yang sesuai dengan kriteria filter.
+              </td>
+            </tr>
+          ) : (
+            invoices.map((inv, index) => (
+              <tr key={inv.id}>
+                <td style={{ textAlign: 'center', color: '#64748b' }}>{index + 1}</td>
+                <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{inv.number}</td>
+                <td>{formatDate(inv.issue_date)}</td>
+                <td>{inv.paid_at ? formatDate(inv.paid_at) : '-'}</td>
+                <td>
+                  <strong>{inv.customer_name}</strong>
+                  <div style={{ fontSize: '9px', color: '#64748b' }}>{inv.customer_code}</div>
+                </td>
+                <td style={{ fontFamily: 'monospace', fontSize: '9.5px' }}>{inv.pppoe_username}</td>
+                <td>{inv.package_name}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <span className={`print-badge ${inv.billing_type === 'prepaid' ? 'print-badge-prepaid' : 'print-badge-postpaid'}`}>
+                    {inv.billing_type === 'prepaid' ? 'Pra' : 'Pasca'}
+                  </span>
+                </td>
+                <td>{inv.payment_method || '-'}</td>
+                <td style={{ color: '#475569' }}>{inv.admin_name || '-'}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <span className={`print-badge ${inv.status === 'paid' ? 'print-badge-paid' : inv.status === 'unpaid' ? 'print-badge-unpaid' : 'print-badge-void'}`}>
+                    {inv.status === 'paid' ? 'Lunas' : inv.status === 'unpaid' ? 'Belum' : 'Batal'}
+                  </span>
+                </td>
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                  {rupiah(inv.amount)}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={10} style={{ textAlign: 'right', textTransform: 'uppercase' }}>
+              Total Kas Masuk (Lunas):
+            </td>
+            <td colSpan={2} style={{ textAlign: 'right', color: '#15803d' }}>
+              {rupiah(totalPaid)}
+            </td>
+          </tr>
+          {totalUnpaid > 0 && (
+            <tr>
+              <td colSpan={10} style={{ textAlign: 'right', textTransform: 'uppercase' }}>
+                Total Piutang (Belum Bayar):
+              </td>
+              <td colSpan={2} style={{ textAlign: 'right', color: '#b45309' }}>
+                {rupiah(totalUnpaid)}
+              </td>
+            </tr>
+          )}
+          <tr>
+            <td colSpan={10} style={{ textAlign: 'right', textTransform: 'uppercase' }}>
+              Grand Total Tagihan Terbit (Gross):
+            </td>
+            <td colSpan={2} style={{ textAlign: 'right', fontSize: '11px', color: '#0f172a' }}>
+              {rupiah(totalGross)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {/* Lembar Tanda Tangan Resmi Pengesahan */}
+      <div className="report-signatures-wrapper">
+        <div className="report-sig-col">
+          <div className="report-sig-role">
+            Mengetahui,<br />
+            <strong>Pimpinan / Direktur Operasional</strong>
+          </div>
+          <div className="report-sig-line">
+            ( .................................................... )
+          </div>
+          <div className="report-sig-meta">
+            Tanggal: .......................................
+          </div>
+        </div>
+
+        <div className="report-sig-col">
+          <div className="report-sig-role">
+            Dibuat & Diverifikasi Oleh,<br />
+            <strong>Staff Keuangan & Kasir</strong>
+          </div>
+          <div className="report-sig-line">
+            ( {session.name} )
+          </div>
+          <div className="report-sig-meta">
+            Tanggal: {formatDate(today)}
+          </div>
+        </div>
+      </div>
+
+      <div className="report-footer-note">
+        Dokumen ini dibuat dan dicetak secara sah melalui Sistem Manajemen Jaringan & Billing Terpusat {settings.company_name || 'JAMES NET'}.
+      </div>
     </div>
+  );
+
+  return (
+    <ReportViewContainer
+      screenContent={screenContent}
+      printContent={printContent}
+      exportUrl={exportUrl}
+    />
   );
 }
