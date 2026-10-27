@@ -17,6 +17,7 @@ export function Sidebar({ adminName, companyName }: Props) {
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/customers', label: 'Pelanggan PPPoE', icon: '👥' },
     { href: '/invoices', label: 'Invoice & Tagihan', icon: '🧾' },
+    { href: '/reports', label: 'Laporan Keuangan', icon: '📈' },
     { href: '/packages', label: 'Paket Internet', icon: '⚡' },
     { href: '/logs', label: 'Log Aktivitas', icon: '📋' },
     { href: '/settings', label: 'Pengaturan & Router', icon: '⚙️' },

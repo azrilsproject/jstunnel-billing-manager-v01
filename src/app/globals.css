@@ -698,7 +698,12 @@ tr:hover td {
   color: #67e8f9;
 }
 
-/* Invoice Print View */
+/* Invoice & Report Print View */
+.report-print-header,
+.report-print-signature {
+  display: none;
+}
+
 @media print {
   body {
     background: #fff !important;
@@ -709,6 +714,35 @@ tr:hover td {
   }
   .main-content {
     padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  .report-print-header {
+    display: block !important;
+    margin-bottom: 20px !important;
+  }
+  .report-print-signature {
+    display: block !important;
+    margin-top: 30px !important;
+    page-break-inside: avoid;
+  }
+  .card, .table-container {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #fff !important;
+    color: #0f172a !important;
+  }
+  .table {
+    color: #0f172a !important;
+  }
+  .table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+  }
+  .table td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
   }
   .invoice-paper {
     border: none !important;
@@ -721,6 +755,7 @@ tr:hover td {
     color: #000 !important;
   }
 }
+
 
 .invoice-paper {
   background: #ffffff;
