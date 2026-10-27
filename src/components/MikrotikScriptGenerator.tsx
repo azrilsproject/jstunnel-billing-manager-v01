@@ -50,9 +50,9 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
 # 2. Buat Profile PPP Isolir
 /ppp profile add name="${profileName}" local-address=${gateway} remote-address=pool-isolir address-list="ISOLIR-LIST" rate-limit="128k/128k" dns-server=8.8.8.8,1.1.1.1 comment="Profile Isolir Otomatis Billing"
 
-# 3. Aktifkan Web Proxy MikroTik untuk Redirect HTTP
+# 3. Aktifkan Web Proxy MikroTik untuk Redirect HTTP (RouterOS v7)
 /ip proxy set enabled=yes port=8080 max-cache-size=none
-/ip proxy access add action=deny redirect-to="${fullUrl}" comment="Redirect Isolir ke Web Billing"
+/ip proxy access add action=redirect action-data="${fullUrl}" comment="Redirect Isolir ke Web Billing"
 
 # 4. NAT: Alihkan trafik HTTP (port 80) pelanggan isolir ke Web Proxy
 /ip firewall nat add chain=dstnat protocol=tcp dst-port=80 src-address-list="ISOLIR-LIST" action=redirect to-ports=8080 comment="NAT Redirect HTTP Isolir ke Web Proxy"
