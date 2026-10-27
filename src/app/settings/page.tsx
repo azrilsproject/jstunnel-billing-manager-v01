@@ -15,6 +15,15 @@ export default async function SettingsPage() {
             Konfigurasi koneksi RouterOS, aturan tanggal isolir otomatis, dan identitas invoice.
           </p>
         </div>
+        <div className="header-actions">
+          <a
+            href="#script-isolir"
+            className="btn btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+          >
+            🛡️ Script Isolir (ROS 6 & 7)
+          </a>
+        </div>
       </div>
 
       <SettingsClient initialSettings={settings} />

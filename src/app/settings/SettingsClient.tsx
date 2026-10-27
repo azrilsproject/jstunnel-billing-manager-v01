@@ -7,6 +7,7 @@ import { importFromMikrotik } from '@/app/actions/customers';
 import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { Settings } from '@/lib/settings';
+import { MikrotikScriptGenerator } from '@/components/MikrotikScriptGenerator';
 
 type Props = {
   initialSettings: Settings;
@@ -305,6 +306,9 @@ export function SettingsClient({ initialSettings }: Props) {
             </SubmitButton>
           </form>
         </div>
+
+        {/* Generator Script Isolir MikroTik ROS 6 & ROS 7 */}
+        <MikrotikScriptGenerator defaultProfile={initialSettings.isolir_profile || 'ISOLIR'} />
       </div>
 
       {/* 3. Import PPPoE Secret dari MikroTik */}
