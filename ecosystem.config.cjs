@@ -3,10 +3,10 @@ module.exports = {
     {
       name: 'james-billing',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      args: `start -p ${process.env.PORT || 3000}`,
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: process.env.PORT || 3000,
       },
       instances: 1,
       autorestart: true,

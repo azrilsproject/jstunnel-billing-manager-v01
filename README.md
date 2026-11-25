@@ -55,23 +55,37 @@ Akses web browser di: **`http://localhost:3000`**
 
 ---
 
-## 🚀 Instalasi Cepat di Server VPS (One-Click Installer)
+## 🚀 Instalasi Otomatis di VM / VPS Baru (Ubuntu / Debian)
 
-Cukup clone repository ini di server Linux (Ubuntu/Debian) lalu jalankan script installer otomatis:
+Di VM baru, cukup clone lalu jalankan satu script:
 
 ```bash
 git clone git@github.com:azrilsproject/jamesnet-billing.git
 cd jamesnet-billing
-chmod +x install.sh
-./install.sh
+sudo ./install.sh
 ```
 
-Script `install.sh` akan otomatis:
-1. Memeriksa & menginstall Node.js 20 LTS, npm, dan PostgreSQL.
-2. Membuat database `james_billing` dan merestore data/skema (`db/dump.sql` & `db/schema.sql`).
-3. Mengonfigurasi file `.env` dengan token enkripsi unik yang aman.
-4. Menginstall seluruh dependensi dan mem-build Next.js untuk mode produksi.
-5. Menjalankan aplikasi di background via **PM2** agar tetap hidup dan otomatis start saat server restart.
+`install.sh` mengerjakan semuanya otomatis (aman dijalankan ulang):
+1. Menginstall Node.js 22 LTS, PostgreSQL, dan PM2 (plus swap 2GB bila RAM VM kecil).
+2. Membuat database `james_billing`, user, dan file `.env` dengan secret acak.
+3. Menjalankan migrasi skema (termasuk tabel multi-router) dan seed admin + paket contoh.
+4. Build Next.js produksi, menjalankan via PM2, auto-start saat VM reboot, dan membuka port di `ufw` bila aktif.
+5. Mengecek aplikasi sudah merespons, lalu menampilkan URL dan login.
+
+Opsi lewat environment variable:
+
+```bash
+APP_PORT=8080 ADMIN_PASSWORD='PasswordKuat' sudo -E ./install.sh   # port & password admin awal
+RESTORE_DUMP=1 sudo -E ./install.sh                                  # restore db/dump.sql ke DB kosong
+```
+
+Update ke versi terbaru di VM yang sudah berjalan:
+
+```bash
+./install.sh --update   # git pull, npm install, migrasi DB, build, restart PM2
+```
+
+Setelah selesai, buka `http://IP-VM:3000`, login `admin` / `admin123` (ganti di menu Pengaturan), lalu tambahkan router di menu **Router MikroTik**.
 
 ---
 
@@ -94,8 +108,8 @@ Buka browser di **`http://localhost:3000`**.
 
 ## ⚙️ Menghubungkan ke Router MikroTik
 
-1. Buka menu **Pengaturan & Router** (`/settings`).
-2. Centang **"Aktifkan Integrasi MikroTik API"**.
+1. Buka menu **Router MikroTik** (`/routers`) lalu klik **Tambah Router**.
+2. Isi data router, klik **Uji Koneksi**, lalu simpan.
 3. Masukkan:
    - **Host / IP Router**: misal `192.168.88.1` atau IP publik/VPN.
    - **Port**: `8728` (atau `8729` jika mengaktifkan TLS).
