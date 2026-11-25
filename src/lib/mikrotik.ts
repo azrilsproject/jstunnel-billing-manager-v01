@@ -1,48 +1,46 @@
 import 'server-only';
 import { RouterOSClient, RosRow } from './routeros';
-import { getSettings, Settings } from './settings';
+import type { Router } from './routers';
 
 export class MikrotikDisabledError extends Error {
-  constructor() {
-    super('Integrasi MikroTik belum diaktifkan (Pengaturan → MikroTik)');
+  constructor(name?: string) {
+    super(
+      name
+        ? `Router "${name}" sedang dinonaktifkan (Pengaturan → Router MikroTik)`
+        : 'Pelanggan belum dipasangkan ke router MikroTik',
+    );
     this.name = 'MikrotikDisabledError';
   }
 }
 
-export function isMikrotikEnabled(s: Settings) {
-  return s.mikrotik_enabled === 'true' && !!s.mikrotik_host;
-}
+export type RouterConn = Pick<Router, 'name' | 'host' | 'port' | 'tls' | 'username' | 'password' | 'enabled'>;
 
-/** Buka koneksi, jalankan fn, lalu tutup koneksi */
-export async function withRouter<T>(
-  fn: (api: RouterOSClient, s: Settings) => Promise<T>,
-  settings?: Settings,
-): Promise<T> {
-  const s = settings ?? (await getSettings());
-  if (!isMikrotikEnabled(s)) throw new MikrotikDisabledError();
+/** Buka koneksi ke router tertentu, jalankan fn, lalu tutup koneksi */
+export async function withRouter<T>(router: RouterConn | null, fn: (api: RouterOSClient) => Promise<T>): Promise<T> {
+  if (!router) throw new MikrotikDisabledError();
+  if (!router.enabled || !router.host) throw new MikrotikDisabledError(router.name);
   const api = new RouterOSClient({
-    host: s.mikrotik_host,
-    port: Number(s.mikrotik_port) || undefined,
-    user: s.mikrotik_user,
-    password: s.mikrotik_password,
-    tls: s.mikrotik_tls === 'true',
+    host: router.host,
+    port: Number(router.port) || undefined,
+    user: router.username,
+    password: router.password,
+    tls: router.tls,
   });
   await api.connect();
   try {
-    return await fn(api, s);
+    return await fn(api);
   } finally {
     api.close();
   }
 }
 
-export async function testConnection(override?: Partial<Settings>) {
-  const base = await getSettings();
-  const s = { ...base, ...override, mikrotik_enabled: 'true' } as Settings;
-  return withRouter(async (api) => {
+export async function testConnection(router: RouterConn) {
+  return withRouter({ ...router, enabled: true }, async (api) => {
     const [identity] = await api.write('/system/identity/print');
     const [resource] = await api.write('/system/resource/print');
     const profiles = await api.write('/ppp/profile/print');
     const secrets = await api.write('/ppp/secret/print', ['=.proplist=name']);
+    const active = await api.write('/ppp/active/print', ['=.proplist=name']);
     return {
       identity: identity?.name ?? '-',
       version: resource?.version ?? '-',
@@ -50,19 +48,20 @@ export async function testConnection(override?: Partial<Settings>) {
       uptime: resource?.uptime ?? '-',
       profiles: profiles.map((p) => p.name),
       secretCount: secrets.length,
+      activeCount: active.length,
     };
-  }, s);
+  });
 }
 
-export async function listProfiles(): Promise<string[]> {
-  return withRouter(async (api) => {
+export async function listProfiles(router: RouterConn | null): Promise<string[]> {
+  return withRouter(router, async (api) => {
     const rows = await api.write('/ppp/profile/print');
     return rows.map((r) => r.name);
   });
 }
 
-export async function listSecrets(): Promise<RosRow[]> {
-  return withRouter((api) => api.write('/ppp/secret/print'));
+export async function listSecrets(router: RouterConn | null): Promise<RosRow[]> {
+  return withRouter(router, (api) => api.write('/ppp/secret/print'));
 }
 
 async function findSecret(api: RouterOSClient, username: string) {
@@ -89,8 +88,8 @@ export type SecretInput = {
 };
 
 /** Buat / update PPPoE secret. Return 'created' | 'updated' */
-export async function upsertSecret(input: SecretInput): Promise<'created' | 'updated'> {
-  return withRouter(async (api) => {
+export async function upsertSecret(router: RouterConn | null, input: SecretInput): Promise<'created' | 'updated'> {
+  return withRouter(router, async (api) => {
     let existing = await findSecret(api, input.username);
     if (!existing && input.previousUsername && input.previousUsername !== input.username) {
       existing = await findSecret(api, input.previousUsername);
@@ -114,8 +113,8 @@ export async function upsertSecret(input: SecretInput): Promise<'created' | 'upd
 }
 
 /** Ganti profile secret lalu putuskan sesi aktif supaya profile baru langsung berlaku */
-export async function setSecretProfile(username: string, profile: string) {
-  return withRouter(async (api) => {
+export async function setSecretProfile(router: RouterConn | null, username: string, profile: string) {
+  return withRouter(router, async (api) => {
     const secret = await findSecret(api, username);
     if (!secret) throw new Error(`PPPoE secret "${username}" tidak ditemukan di router`);
     await api.write('/ppp/secret/set', [`=.id=${secret['.id']}`, `=profile=${profile}`, '=disabled=no']);
@@ -124,8 +123,8 @@ export async function setSecretProfile(username: string, profile: string) {
   });
 }
 
-export async function setSecretDisabled(username: string, disabled: boolean) {
-  return withRouter(async (api) => {
+export async function setSecretDisabled(router: RouterConn | null, username: string, disabled: boolean) {
+  return withRouter(router, async (api) => {
     const secret = await findSecret(api, username);
     if (!secret) return false;
     await api.write('/ppp/secret/set', [`=.id=${secret['.id']}`, `=disabled=${disabled ? 'yes' : 'no'}`]);
@@ -134,8 +133,8 @@ export async function setSecretDisabled(username: string, disabled: boolean) {
   });
 }
 
-export async function removeSecret(username: string) {
-  return withRouter(async (api) => {
+export async function removeSecret(router: RouterConn | null, username: string) {
+  return withRouter(router, async (api) => {
     const secret = await findSecret(api, username);
     if (!secret) return false;
     await kickActive(api, username);
@@ -144,8 +143,8 @@ export async function removeSecret(username: string) {
   });
 }
 
-export async function getActiveSession(username: string) {
-  return withRouter(async (api) => {
+export async function getActiveSession(router: RouterConn | null, username: string) {
+  return withRouter(router, async (api) => {
     const [a] = await api.write('/ppp/active/print', [`?name=${username}`]);
     return a ? { address: a.address, uptime: a.uptime, callerId: a['caller-id'] } : null;
   });

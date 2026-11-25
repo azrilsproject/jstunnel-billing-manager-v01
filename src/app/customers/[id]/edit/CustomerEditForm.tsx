@@ -7,6 +7,7 @@ import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { CustomerWithPackage } from '@/lib/billing';
 import { rupiah } from '@/lib/format';
+import { RouterOption, RouterSelect } from '@/components/RouterSelect';
 
 type Package = {
   id: number;
@@ -19,9 +20,10 @@ type Package = {
 type Props = {
   customer: CustomerWithPackage;
   packages: Package[];
+  routers: RouterOption[];
 };
 
-export function CustomerEditForm({ customer, packages }: Props) {
+export function CustomerEditForm({ customer, packages, routers }: Props) {
   const [state, formAction] = useActionState(updateCustomer, initialState);
   const [deleteState, deleteAction] = useActionState(deleteCustomer, initialState);
   const [billingType, setBillingType] = useState<'prepaid' | 'postpaid'>(customer.billing_type || 'prepaid');
@@ -127,6 +129,7 @@ export function CustomerEditForm({ customer, packages }: Props) {
             </div>
           </div>
 
+          <div className="form-row">
           <div className="form-group">
             <label className="form-label" htmlFor="package_id">
               Pilihan Paket Layanan *
@@ -138,6 +141,13 @@ export function CustomerEditForm({ customer, packages }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+
+          <RouterSelect
+            routers={routers}
+            defaultValue={customer.router_id}
+            help="Jika router diganti dan opsi sync dicentang, secret dibuat di router baru dan dihapus dari router lama."
+          />
           </div>
 
           <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>

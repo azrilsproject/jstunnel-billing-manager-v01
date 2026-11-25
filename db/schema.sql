@@ -85,3 +85,57 @@ CREATE INDEX IF NOT EXISTS activity_logs_created_idx ON activity_logs (created_a
 
 -- Migrasi kolom billing_type untuk database yang sudah berjalan
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS billing_type TEXT NOT NULL DEFAULT 'prepaid' CHECK (billing_type IN ('prepaid', 'postpaid'));
+
+-- ------------------------------------------------------------------
+-- Multi-router MikroTik: banyak router, tiap pelanggan terikat ke satu router
+-- ------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS routers (
+  id             SERIAL PRIMARY KEY,
+  name           TEXT NOT NULL,
+  host           TEXT NOT NULL,
+  port           INTEGER NOT NULL DEFAULT 8728,
+  tls            BOOLEAN NOT NULL DEFAULT false,
+  username       TEXT NOT NULL,
+  password       TEXT NOT NULL DEFAULT '',
+  isolir_profile TEXT NOT NULL DEFAULT 'ISOLIR',
+  enabled        BOOLEAN NOT NULL DEFAULT true,
+  is_default     BOOLEAN NOT NULL DEFAULT false,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- hanya boleh ada satu router default
+CREATE UNIQUE INDEX IF NOT EXISTS routers_single_default_idx ON routers (is_default) WHERE is_default;
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS router_id INTEGER REFERENCES routers(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS customers_router_idx ON customers (router_id);
+
+-- Migrasi satu kali: pindahkan konfigurasi router tunggal lama (tabel settings)
+-- menjadi router pertama, lalu pasangkan semua pelanggan lama ke router tersebut.
+DO $$
+DECLARE
+  v_host TEXT;
+  v_id   INTEGER;
+BEGIN
+  IF EXISTS (SELECT 1 FROM routers) THEN
+    RETURN;
+  END IF;
+  SELECT value INTO v_host FROM settings WHERE key = 'mikrotik_host';
+  IF coalesce(v_host, '') = '' THEN
+    RETURN;
+  END IF;
+  INSERT INTO routers (name, host, port, tls, username, password, isolir_profile, enabled, is_default)
+  VALUES (
+    'Router Utama',
+    v_host,
+    coalesce(nullif((SELECT value FROM settings WHERE key = 'mikrotik_port'), '')::int, 8728),
+    coalesce((SELECT value FROM settings WHERE key = 'mikrotik_tls'), 'false') = 'true',
+    coalesce((SELECT value FROM settings WHERE key = 'mikrotik_user'), ''),
+    coalesce((SELECT value FROM settings WHERE key = 'mikrotik_password'), ''),
+    coalesce(nullif((SELECT value FROM settings WHERE key = 'isolir_profile'), ''), 'ISOLIR'),
+    coalesce((SELECT value FROM settings WHERE key = 'mikrotik_enabled'), 'false') = 'true',
+    true
+  )
+  RETURNING id INTO v_id;
+  UPDATE customers SET router_id = v_id WHERE router_id IS NULL;
+END $$;

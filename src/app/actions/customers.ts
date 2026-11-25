@@ -15,8 +15,8 @@ import {
   setCustomerInactiveOnRouter,
   syncCustomerToMikrotik,
 } from '@/lib/billing';
-import { getSettings } from '@/lib/settings';
-import { isMikrotikEnabled, listSecrets, removeSecret, upsertSecret } from '@/lib/mikrotik';
+import { listSecrets, removeSecret, upsertSecret } from '@/lib/mikrotik';
+import { getRouter, isRouterUsable } from '@/lib/routers';
 import { parseCsv } from '@/lib/csv';
 
 const USERNAME_RE = /^[A-Za-z0-9._@-]+$/;
@@ -35,6 +35,7 @@ function parseCustomer(fd: FormData) {
     due_day: int(fd, 'due_day'),
     isolir_day: int(fd, 'isolir_day'),
     notes: str(fd, 'notes'),
+    router_id: int(fd, 'router_id') || null,
   };
   const e: Record<string, string> = {};
   if (!data.name) e.name = 'Nama wajib diisi';
@@ -65,11 +66,12 @@ export async function createCustomer(_prev: ActionState, fd: FormData): Promise<
 
   const row = await queryOne<{ id: number; code: string }>(
     `INSERT INTO customers (name, phone, address, pppoe_username, pppoe_password, package_id,
-                            billing_type, active_date, due_day, isolir_day, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, code`,
+                            billing_type, active_date, due_day, isolir_day, notes, router_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, code`,
     [
       data.name, data.phone || null, data.address || null, data.pppoe_username, data.pppoe_password,
       data.package_id, data.billing_type, data.active_date, data.due_day, data.isolir_day, data.notes || null,
+      data.router_id,
     ],
   );
   const id = row!.id;
@@ -109,18 +111,23 @@ export async function updateCustomer(_prev: ActionState, fd: FormData): Promise<
 
   await query(
     `UPDATE customers SET name=$1, phone=$2, address=$3, pppoe_username=$4, pppoe_password=$5,
-       package_id=$6, billing_type=$7, active_date=$8, due_day=$9, isolir_day=$10, notes=$11, updated_at=now()
-     WHERE id=$12`,
+       package_id=$6, billing_type=$7, active_date=$8, due_day=$9, isolir_day=$10, notes=$11,
+       router_id=$12, updated_at=now()
+     WHERE id=$13`,
     [
       data.name, data.phone || null, data.address || null, data.pppoe_username, data.pppoe_password,
-      data.package_id, data.billing_type, data.active_date, data.due_day, data.isolir_day, data.notes || null, id,
+      data.package_id, data.billing_type, data.active_date, data.due_day, data.isolir_day, data.notes || null,
+      data.router_id, id,
     ],
   );
   await logActivity('info', 'customer.update', `Data pelanggan ${before.code} - ${data.name} diperbarui`, id);
 
   const msgs = ['Data pelanggan disimpan'];
   if (fd.get('sync_mikrotik') === 'on') {
-    const r = await syncCustomerToMikrotik(id, before.pppoe_username);
+    const r = await syncCustomerToMikrotik(id, {
+      previousUsername: before.pppoe_username,
+      previousRouterId: before.router_id,
+    });
     msgs.push(r.message);
   }
   revalidateCustomer(id);
@@ -134,10 +141,10 @@ export async function deleteCustomer(_prev: ActionState, fd: FormData): Promise<
   if (!c) return fail('Pelanggan tidak ditemukan');
 
   if (fd.get('remove_secret') === 'on') {
-    const s = await getSettings();
-    if (isMikrotikEnabled(s)) {
+    const router = await getRouter(c.router_id);
+    if (isRouterUsable(router)) {
       try {
-        await removeSecret(c.pppoe_username);
+        await removeSecret(router, c.pppoe_username);
       } catch (err) {
         return fail(`Gagal hapus secret di MikroTik: ${(err as Error).message}`);
       }
@@ -157,10 +164,10 @@ export async function deleteCustomerDirect(fd: FormData): Promise<void> {
 
   const removeSecretFromRouter = fd.get('remove_secret') !== 'off';
   if (removeSecretFromRouter) {
-    const s = await getSettings();
-    if (isMikrotikEnabled(s)) {
+    const router = await getRouter(c.router_id);
+    if (isRouterUsable(router)) {
       try {
-        await removeSecret(c.pppoe_username);
+        await removeSecret(router, c.pppoe_username);
       } catch {
         // Router might be offline or secret already deleted
       }
@@ -206,7 +213,7 @@ export async function setInactive(fd: FormData): Promise<void> {
   await query(`UPDATE customers SET status = $1, updated_at = now() WHERE id = $2`, [
     inactive ? 'inactive' : 'active', id,
   ]);
-  await setCustomerInactiveOnRouter(c.pppoe_username, inactive);
+  await setCustomerInactiveOnRouter(id, inactive);
   if (!inactive) await syncCustomerToMikrotik(id);
   await logActivity(
     inactive ? 'warning' : 'success',
@@ -236,12 +243,13 @@ export async function importFromMikrotik(_prev: ActionState, fd: FormData): Prom
   if (!(dueDay >= 1 && dueDay <= 31) || !(isolirDay >= 1 && isolirDay <= 31)) {
     return fail('Tanggal jatuh tempo & isolir harus 1–31');
   }
-  const s = await getSettings();
-  if (!isMikrotikEnabled(s)) return fail('Aktifkan integrasi MikroTik dulu di Pengaturan');
+  const router = await getRouter(int(fd, 'router_id'));
+  if (!router) return fail('Pilih router sumber impor');
+  if (!isRouterUsable(router)) return fail(`Router ${router.name} sedang nonaktif, aktifkan dulu`);
 
   let secrets;
   try {
-    secrets = await listSecrets();
+    secrets = await listSecrets(router);
   } catch (err) {
     return fail(`Gagal mengambil secret: ${(err as Error).message}`);
   }
@@ -257,26 +265,26 @@ export async function importFromMikrotik(_prev: ActionState, fd: FormData): Prom
   for (const sec of secrets) {
     if (sec.service && !['pppoe', 'any'].includes(sec.service)) continue;
     if (!sec.name || existing.has(sec.name)) continue;
-    const isIsolir = sec.profile?.toLowerCase() === s.isolir_profile.toLowerCase();
+    const isIsolir = sec.profile?.toLowerCase() === router.isolir_profile.toLowerCase();
     const pkgId = byProfile.get((sec.profile ?? '').toLowerCase());
     if (!pkgId) {
       unmatched.add(sec.profile || '(kosong)');
       continue;
     }
     await query(
-      `INSERT INTO customers (name, pppoe_username, pppoe_password, package_id, active_date, due_day, isolir_day, status, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `INSERT INTO customers (name, pppoe_username, pppoe_password, package_id, active_date, due_day, isolir_day, status, notes, router_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         sec.comment || sec.name, sec.name, sec.password ?? '', pkgId, today, dueDay, isolirDay,
         sec.disabled === 'true' ? 'inactive' : isIsolir ? 'isolated' : 'active',
-        'Diimpor dari MikroTik',
+        `Diimpor dari MikroTik ${router.name}`, router.id,
       ],
     );
     imported++;
   }
-  await logActivity('info', 'customer.import', `Import MikroTik: ${imported} pelanggan ditambahkan`);
+  await logActivity('info', 'customer.import', `Import MikroTik [${router.name}]: ${imported} pelanggan ditambahkan`);
   revalidateCustomer();
-  let msg = `${imported} pelanggan berhasil diimpor.`;
+  let msg = `${imported} pelanggan berhasil diimpor dari ${router.name}.`;
   if (unmatched.size) msg += ` Dilewati karena profile belum ada di Paket: ${[...unmatched].join(', ')}`;
   return imported || !unmatched.size ? ok(msg) : fail(msg);
 }
@@ -298,6 +306,7 @@ export async function importCustomersCsvAction(
   const rawText = str(fd, 'csv_text');
   const syncMikrotik = fd.get('sync_mikrotik') === 'on' || fd.get('sync_mikrotik') === 'true';
   const autoCreatePackage = fd.get('auto_create_package') === 'on' || fd.get('auto_create_package') === 'true';
+  const router = await getRouter(int(fd, 'router_id'));
 
   let content = '';
   if (file && file.size > 0) {
@@ -372,7 +381,6 @@ export async function importCustomersCsvAction(
     )
   );
 
-  const settings = await getSettings();
   const today = todayStr();
   const errors: { line: number; message: string }[] = [];
   const importedNames: string[] = [];
@@ -444,8 +452,8 @@ export async function importCustomersCsvAction(
       const res = await queryOne<{ id: number; code: string }>(
         `INSERT INTO customers (
           name, phone, address, pppoe_username, pppoe_password, package_id,
-          billing_type, active_date, due_day, isolir_day, status, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', $11)
+          billing_type, active_date, due_day, isolir_day, status, notes, router_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', $11, $12)
         RETURNING id, code`,
         [
           name.trim(),
@@ -459,6 +467,7 @@ export async function importCustomersCsvAction(
           dueDay,
           isolirDay,
           notes.trim() || 'Import CSV',
+          router?.id ?? null,
         ]
       );
 
@@ -466,9 +475,9 @@ export async function importCustomersCsvAction(
         existingUsers.add(cleanUsername.toLowerCase());
         importedNames.push(`${name.trim()} (${cleanUsername})`);
 
-        if (syncMikrotik && isMikrotikEnabled(settings)) {
+        if (syncMikrotik && isRouterUsable(router)) {
           try {
-            await upsertSecret({
+            await upsertSecret(router, {
               username: cleanUsername,
               password: password.trim(),
               profile: pkg.mikrotik_profile,

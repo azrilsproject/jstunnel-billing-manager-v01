@@ -8,13 +8,6 @@ export type Settings = {
   bank_info: string;
   invoice_days_before: string;
   auto_isolir: string;
-  mikrotik_enabled: string;
-  mikrotik_host: string;
-  mikrotik_port: string;
-  mikrotik_tls: string;
-  mikrotik_user: string;
-  mikrotik_password: string;
-  isolir_profile: string;
   last_cycle_at?: string;
   last_cycle_summary?: string;
 };
@@ -26,13 +19,6 @@ const DEFAULTS: Settings = {
   bank_info: '',
   invoice_days_before: '7',
   auto_isolir: 'true',
-  mikrotik_enabled: 'false',
-  mikrotik_host: '',
-  mikrotik_port: '8728',
-  mikrotik_tls: 'false',
-  mikrotik_user: '',
-  mikrotik_password: '',
-  isolir_profile: 'ISOLIR',
 };
 
 export async function getSettings(): Promise<Settings> {

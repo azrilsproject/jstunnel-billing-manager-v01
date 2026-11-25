@@ -20,7 +20,8 @@ export function Sidebar({ adminName, companyName }: Props) {
     { href: '/reports', label: 'Laporan Keuangan', icon: '📈' },
     { href: '/packages', label: 'Paket Internet', icon: '⚡' },
     { href: '/logs', label: 'Log Aktivitas', icon: '📋' },
-    { href: '/settings', label: 'Pengaturan & Router', icon: '⚙️' },
+    { href: '/routers', label: 'Router MikroTik', icon: '📡' },
+    { href: '/settings', label: 'Pengaturan', icon: '⚙️' },
   ];
 
   return (

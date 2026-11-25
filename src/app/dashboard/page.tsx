@@ -4,6 +4,7 @@ import { query, queryOne } from '@/lib/db';
 import { formatDate, formatDateTime, periodLabel, todayStr } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { getSettings } from '@/lib/settings';
+import { listRoutersWithStats } from '@/lib/routers';
 import { triggerBillingCycle, triggerGenerateInvoices } from '@/app/actions/invoices';
 import { SubmitButton } from '@/components/SubmitButton';
 
@@ -81,7 +82,10 @@ export default async function DashboardPage() {
     LIMIT 5
   `);
 
-  const mikrotikConfigured = settings.mikrotik_enabled === 'true' && !!settings.mikrotik_host;
+  const routers = await listRoutersWithStats();
+  const enabledRouters = routers.filter((r) => r.enabled).length;
+  const unassigned =
+    (await queryOne<{ n: number }>('SELECT count(*)::int AS n FROM customers WHERE router_id IS NULL'))?.n ?? 0;
 
   return (
     <div>
@@ -106,41 +110,58 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Router Status Banner */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          background: mikrotikConfigured
-            ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(15, 23, 42, 0.6) 100%)'
-            : 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.6) 100%)',
-          borderColor: mikrotikConfigured ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '24px' }}>{mikrotikConfigured ? '📡' : '⚠️'}</span>
+      {/* Router Status Strip (multi-router) */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: routers.length ? '14px' : 0 }}>
           <div>
             <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>
-              {mikrotikConfigured
-                ? `MikroTik API Aktif (${settings.mikrotik_host}:${settings.mikrotik_port || '8728'})`
-                : 'Integrasi MikroTik Belum Diaktifkan'}
+              {routers.length
+                ? `📡 ${enabledRouters} dari ${routers.length} router MikroTik aktif`
+                : '⚠️ Belum ada router MikroTik terhubung'}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {mikrotikConfigured
-                ? `Profil isolir: "${settings.isolir_profile}". Otomatis isolir: ${settings.auto_isolir === 'true' ? 'Aktif' : 'Nonaktif'}.`
-                : 'Sistem saat ini berjalan dalam mode pencatatan lokal. Hubungkan ke RouterOS di menu Pengaturan.'}
+              {routers.length
+                ? `Otomatis isolir: ${settings.auto_isolir === 'true' ? 'Aktif' : 'Nonaktif'}.` +
+                  (unassigned ? ` ${unassigned} pelanggan belum dipasangkan ke router.` : '')
+                : 'Sistem berjalan dalam mode pencatatan lokal. Tambahkan router di menu Pengaturan.'}
             </div>
           </div>
+          <Link href="/routers" className="btn btn-secondary btn-sm">
+            Kelola Router →
+          </Link>
         </div>
-        <Link href="/settings" className="btn btn-secondary btn-sm">
-          Konfigurasi Router →
-        </Link>
+        {routers.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
+            {routers.map((r) => (
+              <Link
+                key={r.id}
+                href={`/customers?router=${r.id}`}
+                style={{
+                  display: 'block',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: `1px solid ${r.enabled ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.25)'}`,
+                  background: r.enabled ? 'rgba(16, 185, 129, 0.06)' : 'rgba(148, 163, 184, 0.06)',
+                  color: 'inherit',
+                  textDecoration: 'none',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
+                  <span className="badge-dot" style={{ background: r.enabled ? '#10b981' : '#94a3b8' }} />
+                  {r.name}
+                  {r.is_default && <span style={{ fontSize: '10px', color: '#fbbf24' }}>★</span>}
+                </div>
+                <div className="font-mono" style={{ fontSize: '11px', color: 'var(--text-dim)', margin: '2px 0 6px' }}>
+                  {r.host}:{r.port}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  <strong style={{ color: 'var(--text-main)' }}>{r.customer_total}</strong> pelanggan •{' '}
+                  <span style={{ color: '#f87171' }}>{r.customer_isolated} isolir</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stat Grid */}
@@ -166,7 +187,7 @@ export default async function DashboardPage() {
             {statsCustomer?.isolated ?? 0}
           </div>
           <div className="stat-sub">
-            Profil PPP dialihkan ke &quot;{settings.isolir_profile}&quot;
+            Profil PPP dialihkan ke profil isolir tiap router
           </div>
         </div>
 

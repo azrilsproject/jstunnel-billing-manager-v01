@@ -6,6 +6,7 @@ import { createCustomer } from '@/app/actions/customers';
 import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { rupiah } from '@/lib/format';
+import { RouterOption, RouterSelect } from '@/components/RouterSelect';
 
 type Package = {
   id: number;
@@ -17,12 +18,13 @@ type Package = {
 
 type Props = {
   packages: Package[];
+  routers: RouterOption[];
   defaultActiveDate: string;
   defaultDueDay: number;
   defaultIsolirDay: number;
 };
 
-export function CustomerForm({ packages, defaultActiveDate, defaultDueDay, defaultIsolirDay }: Props) {
+export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueDay, defaultIsolirDay }: Props) {
   const [state, formAction] = useActionState(createCustomer, initialState);
   const [billingType, setBillingType] = useState<'prepaid' | 'postpaid'>('prepaid');
 
@@ -129,6 +131,7 @@ export function CustomerForm({ packages, defaultActiveDate, defaultDueDay, defau
           </div>
         </div>
 
+        <div className="form-row">
         <div className="form-group">
           <label className="form-label" htmlFor="package_id">
             Pilihan Paket Layanan *
@@ -144,6 +147,9 @@ export function CustomerForm({ packages, defaultActiveDate, defaultDueDay, defau
           {state.errors?.package_id && (
             <div style={{ color: '#f87171', fontSize: '12px', marginTop: '4px' }}>{state.errors.package_id}</div>
           )}
+        </div>
+
+        <RouterSelect routers={routers} />
         </div>
 
         {/* Bagian 3: Siklus Tagihan, Tanggal Aktif & Tanggal Isolir */}

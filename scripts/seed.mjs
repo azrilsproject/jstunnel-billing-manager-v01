@@ -16,13 +16,6 @@ const defaultSettings = {
   bank_info: 'BCA 1234567890 a.n. James Net',
   invoice_days_before: '7',
   auto_isolir: 'true',
-  mikrotik_enabled: 'false',
-  mikrotik_host: '',
-  mikrotik_port: '8728',
-  mikrotik_tls: 'false',
-  mikrotik_user: '',
-  mikrotik_password: '',
-  isolir_profile: 'ISOLIR',
   timezone: 'Asia/Jakarta',
 };
 

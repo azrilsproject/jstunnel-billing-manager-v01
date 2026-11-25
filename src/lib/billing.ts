@@ -2,13 +2,9 @@ import 'server-only';
 import { query, queryOne, transaction } from './db';
 import { addDays, addMonths, computeSchedule, parseDate, todayStr, periodLabel } from './dates';
 import { logActivity } from './logs';
-import { getSettings, setSettings, Settings } from './settings';
-import {
-  isMikrotikEnabled,
-  setSecretProfile,
-  setSecretDisabled,
-  upsertSecret,
-} from './mikrotik';
+import { getSettings, setSettings } from './settings';
+import { removeSecret, setSecretProfile, setSecretDisabled, upsertSecret } from './mikrotik';
+import { getRouter, isRouterUsable, Router } from './routers';
 
 export type CustomerWithPackage = {
   id: number;
@@ -28,18 +24,37 @@ export type CustomerWithPackage = {
   package_name: string;
   price: number;
   mikrotik_profile: string;
+  router_id: number | null;
+  router_name: string | null;
 };
 
 const CUSTOMER_SELECT = `
-  SELECT c.*, p.name AS package_name, p.price, p.mikrotik_profile
-  FROM customers c JOIN packages p ON p.id = c.package_id`;
+  SELECT c.*, p.name AS package_name, p.price, p.mikrotik_profile, r.name AS router_name
+  FROM customers c
+  JOIN packages p ON p.id = c.package_id
+  LEFT JOIN routers r ON r.id = c.router_id`;
 
 export async function getCustomer(id: number) {
   return queryOne<CustomerWithPackage>(`${CUSTOMER_SELECT} WHERE c.id = $1`, [id]);
 }
 
+function routerOffMsg(router: Router | null) {
+  return router ? `router ${router.name} nonaktif` : 'tanpa router';
+}
+
 function errMsg(err: unknown) {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Cache router per siklus agar tidak query berulang untuk tiap pelanggan */
+export type RouterCache = Map<number, Router | null>;
+
+async function routerFor(routerId: number | null, cache?: RouterCache): Promise<Router | null> {
+  if (!routerId) return null;
+  if (cache?.has(routerId)) return cache.get(routerId) ?? null;
+  const r = await getRouter(routerId);
+  cache?.set(routerId, r);
+  return r;
 }
 
 /* ------------------------------------------------------------------ */
@@ -219,53 +234,53 @@ export async function createManualInvoice(params: ManualInvoiceParams) {
 /* Isolir / buka isolir                                                */
 /* ------------------------------------------------------------------ */
 
-export async function isolateCustomer(customerId: number, reason: string, settings?: Settings) {
-  const s = settings ?? (await getSettings());
+export async function isolateCustomer(customerId: number, reason: string, cache?: RouterCache) {
   const c = await getCustomer(customerId);
   if (!c) return { ok: false, message: 'Pelanggan tidak ditemukan' };
   if (c.status === 'inactive') return { ok: false, message: 'Pelanggan berstatus berhenti' };
 
-  if (isMikrotikEnabled(s)) {
+  const router = await routerFor(c.router_id, cache);
+  if (isRouterUsable(router)) {
     try {
-      const { kicked } = await setSecretProfile(c.pppoe_username, s.isolir_profile);
+      const { kicked } = await setSecretProfile(router, c.pppoe_username, router.isolir_profile);
       await logActivity(
         'warning',
         'mikrotik.isolir',
-        `${c.name} (${c.pppoe_username}) diisolir → profile ${s.isolir_profile}${kicked ? ', sesi diputus' : ''}. ${reason}`,
+        `[${router.name}] ${c.name} (${c.pppoe_username}) diisolir → profile ${router.isolir_profile}${kicked ? ', sesi diputus' : ''}. ${reason}`,
         c.id,
       );
     } catch (err) {
-      await logActivity('error', 'mikrotik.isolir', `Gagal isolir ${c.pppoe_username}: ${errMsg(err)}`, c.id);
-      return { ok: false, message: `Gagal isolir di MikroTik: ${errMsg(err)}` };
+      await logActivity('error', 'mikrotik.isolir', `[${router.name}] Gagal isolir ${c.pppoe_username}: ${errMsg(err)}`, c.id);
+      return { ok: false, message: `Gagal isolir di router ${router.name}: ${errMsg(err)}` };
     }
   } else {
-    await logActivity('warning', 'isolir', `${c.name} ditandai terisolir (MikroTik nonaktif). ${reason}`, c.id);
+    await logActivity('warning', 'isolir', `${c.name} ditandai terisolir (${routerOffMsg(router)}). ${reason}`, c.id);
   }
 
   await query(`UPDATE customers SET status = 'isolated', updated_at = now() WHERE id = $1`, [c.id]);
   return { ok: true, message: `${c.name} berhasil diisolir` };
 }
 
-export async function restoreCustomer(customerId: number, reason: string, settings?: Settings) {
-  const s = settings ?? (await getSettings());
+export async function restoreCustomer(customerId: number, reason: string, cache?: RouterCache) {
   const c = await getCustomer(customerId);
   if (!c) return { ok: false, message: 'Pelanggan tidak ditemukan' };
 
-  if (isMikrotikEnabled(s)) {
+  const router = await routerFor(c.router_id, cache);
+  if (isRouterUsable(router)) {
     try {
-      const { kicked } = await setSecretProfile(c.pppoe_username, c.mikrotik_profile);
+      const { kicked } = await setSecretProfile(router, c.pppoe_username, c.mikrotik_profile);
       await logActivity(
         'success',
         'mikrotik.restore',
-        `${c.name} (${c.pppoe_username}) dibuka → profile ${c.mikrotik_profile}${kicked ? ', sesi diputus' : ''}. ${reason}`,
+        `[${router.name}] ${c.name} (${c.pppoe_username}) dibuka → profile ${c.mikrotik_profile}${kicked ? ', sesi diputus' : ''}. ${reason}`,
         c.id,
       );
     } catch (err) {
-      await logActivity('error', 'mikrotik.restore', `Gagal buka isolir ${c.pppoe_username}: ${errMsg(err)}`, c.id);
-      return { ok: false, message: `Gagal buka isolir di MikroTik: ${errMsg(err)}` };
+      await logActivity('error', 'mikrotik.restore', `[${router.name}] Gagal buka isolir ${c.pppoe_username}: ${errMsg(err)}`, c.id);
+      return { ok: false, message: `Gagal buka isolir di router ${router.name}: ${errMsg(err)}` };
     }
   } else {
-    await logActivity('success', 'restore', `${c.name} diaktifkan kembali (MikroTik nonaktif). ${reason}`, c.id);
+    await logActivity('success', 'restore', `${c.name} diaktifkan kembali (${routerOffMsg(router)}). ${reason}`, c.id);
   }
 
   await query(`UPDATE customers SET status = 'active', updated_at = now() WHERE id = $1`, [c.id]);
@@ -362,6 +377,7 @@ export async function deleteInvoice(invoiceId: number) {
 
 export async function runIsolirCheck(today = todayStr()) {
   const s = await getSettings();
+  const cache: RouterCache = new Map();
   const result = { isolated: 0, restored: 0, failed: 0 };
 
   if (s.auto_isolir === 'true') {
@@ -373,7 +389,7 @@ export async function runIsolirCheck(today = todayStr()) {
       [today],
     );
     for (const c of due) {
-      const r = await isolateCustomer(c.id, `Tunggakan: ${c.numbers}`, s);
+      const r = await isolateCustomer(c.id, `Tunggakan: ${c.numbers}`, cache);
       if (r.ok) result.isolated++;
       else result.failed++;
     }
@@ -388,7 +404,7 @@ export async function runIsolirCheck(today = todayStr()) {
     [today],
   );
   for (const c of clear) {
-    const r = await restoreCustomer(c.id, 'Tidak ada tunggakan', s);
+    const r = await restoreCustomer(c.id, 'Tidak ada tunggakan', cache);
     if (r.ok) result.restored++;
     else result.failed++;
   }
@@ -421,35 +437,65 @@ export async function runBillingCycle(source = 'scheduler') {
 /* Sinkronisasi pelanggan ke MikroTik                                  */
 /* ------------------------------------------------------------------ */
 
-export async function syncCustomerToMikrotik(customerId: number, previousUsername?: string) {
-  const s = await getSettings();
-  if (!isMikrotikEnabled(s)) return { ok: true, skipped: true, message: 'MikroTik nonaktif, hanya disimpan di database' };
+export type SyncOpts = {
+  /** username lama jika username diganti */
+  previousUsername?: string;
+  /** router lama jika pelanggan dipindah router: secret di router lama akan dihapus */
+  previousRouterId?: number | null;
+};
+
+export async function syncCustomerToMikrotik(customerId: number, opts: SyncOpts = {}) {
   const c = await getCustomer(customerId);
   if (!c) return { ok: false, message: 'Pelanggan tidak ditemukan' };
+  const router = await getRouter(c.router_id);
+
+  const notes: string[] = [];
+  // Pindah router: bersihkan secret di router lama (best effort)
+  if (opts.previousRouterId && opts.previousRouterId !== c.router_id) {
+    const oldRouter = await getRouter(opts.previousRouterId);
+    if (isRouterUsable(oldRouter)) {
+      try {
+        const removed = await removeSecret(oldRouter, opts.previousUsername ?? c.pppoe_username);
+        if (removed) notes.push(`secret lama di ${oldRouter.name} dihapus`);
+        await logActivity('info', 'mikrotik.move', `${c.pppoe_username} dipindah dari router ${oldRouter.name} ke ${router?.name ?? '(tanpa router)'}`, c.id);
+      } catch (err) {
+        notes.push(`gagal hapus secret lama di ${oldRouter.name}: ${errMsg(err)}`);
+        await logActivity('error', 'mikrotik.move', `[${oldRouter.name}] Gagal hapus secret lama ${c.pppoe_username}: ${errMsg(err)}`, c.id);
+      }
+    }
+  }
+  const suffix = notes.length ? ` (${notes.join('; ')})` : '';
+
+  if (!router) return { ok: true, skipped: true, message: `Pelanggan tanpa router, hanya disimpan di database${suffix}` };
+  if (!isRouterUsable(router)) {
+    return { ok: true, skipped: true, message: `Router ${router.name} nonaktif, hanya disimpan di database${suffix}` };
+  }
   try {
-    const profile = c.status === 'isolated' ? s.isolir_profile : c.mikrotik_profile;
-    const r = await upsertSecret({
+    const profile = c.status === 'isolated' ? router.isolir_profile : c.mikrotik_profile;
+    const r = await upsertSecret(router, {
       username: c.pppoe_username,
       password: c.pppoe_password,
       profile,
       comment: `${c.code} - ${c.name}`,
       disabled: c.status === 'inactive',
-      previousUsername,
+      previousUsername: opts.previousRouterId && opts.previousRouterId !== c.router_id ? undefined : opts.previousUsername,
     });
-    await logActivity('info', 'mikrotik.sync', `Secret ${c.pppoe_username} ${r === 'created' ? 'dibuat' : 'diperbarui'} (profile ${profile})`, c.id);
-    return { ok: true, message: `Secret PPPoE ${r === 'created' ? 'dibuat' : 'diperbarui'} di MikroTik` };
+    await logActivity('info', 'mikrotik.sync', `[${router.name}] Secret ${c.pppoe_username} ${r === 'created' ? 'dibuat' : 'diperbarui'} (profile ${profile})`, c.id);
+    return { ok: true, message: `Secret PPPoE ${r === 'created' ? 'dibuat' : 'diperbarui'} di router ${router.name}${suffix}` };
   } catch (err) {
-    await logActivity('error', 'mikrotik.sync', `Gagal sync ${c.pppoe_username}: ${errMsg(err)}`, c.id);
-    return { ok: false, message: `Tersimpan di database, tapi gagal sync MikroTik: ${errMsg(err)}` };
+    await logActivity('error', 'mikrotik.sync', `[${router.name}] Gagal sync ${c.pppoe_username}: ${errMsg(err)}`, c.id);
+    return { ok: false, message: `Tersimpan di database, tapi gagal sync ke router ${router.name}: ${errMsg(err)}${suffix}` };
   }
 }
 
-export async function setCustomerInactiveOnRouter(username: string, inactive: boolean) {
-  const s = await getSettings();
-  if (!isMikrotikEnabled(s)) return;
+export async function setCustomerInactiveOnRouter(customerId: number, inactive: boolean) {
+  const c = await getCustomer(customerId);
+  if (!c) return;
+  const router = await getRouter(c.router_id);
+  if (!isRouterUsable(router)) return;
   try {
-    await setSecretDisabled(username, inactive);
+    await setSecretDisabled(router, c.pppoe_username, inactive);
   } catch (err) {
-    await logActivity('error', 'mikrotik.disable', `Gagal ${inactive ? 'disable' : 'enable'} ${username}: ${errMsg(err)}`);
+    await logActivity('error', 'mikrotik.disable', `[${router.name}] Gagal ${inactive ? 'disable' : 'enable'} ${c.pppoe_username}: ${errMsg(err)}`, c.id);
   }
 }

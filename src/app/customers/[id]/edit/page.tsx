@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/dal';
 import { getCustomer } from '@/lib/billing';
 import { query } from '@/lib/db';
 import { CustomerEditForm } from './CustomerEditForm';
+import type { RouterOption } from '@/components/RouterSelect';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -26,6 +27,10 @@ export default async function EditCustomerPage({ params }: Props) {
     mikrotik_profile: string;
   }>('SELECT id, name, price, speed, mikrotik_profile FROM packages ORDER BY price ASC');
 
+  const routers = await query<RouterOption>(
+    'SELECT id, name, host, enabled, is_default FROM routers ORDER BY is_default DESC, name ASC',
+  );
+
   return (
     <div style={{ maxWidth: '840px', margin: '0 auto' }}>
       <div className="page-header">
@@ -40,7 +45,7 @@ export default async function EditCustomerPage({ params }: Props) {
         </div>
       </div>
 
-      <CustomerEditForm customer={customer} packages={packages} />
+      <CustomerEditForm customer={customer} packages={packages} routers={routers} />
     </div>
   );
 }

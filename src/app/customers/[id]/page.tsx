@@ -6,7 +6,8 @@ import { query } from '@/lib/db';
 import { formatDate, periodLabel } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { getSettings } from '@/lib/settings';
-import { getActiveSession, isMikrotikEnabled } from '@/lib/mikrotik';
+import { getActiveSession } from '@/lib/mikrotik';
+import { getRouter, isRouterUsable } from '@/lib/routers';
 import { SubmitButton } from '@/components/SubmitButton';
 import { DeleteConfirmForm } from '@/components/DeleteConfirmForm';
 import {
@@ -38,12 +39,14 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
   const settings = await getSettings();
 
   // Ambil sesi aktif PPPoE dari MikroTik realtime jika router aktif
+  const router = await getRouter(customer.router_id);
   let activeSession: { address: string; uptime: string; callerId: string } | null = null;
-  if (isMikrotikEnabled(settings)) {
+  let routerError: string | null = null;
+  if (isRouterUsable(router)) {
     try {
-      activeSession = await getActiveSession(customer.pppoe_username);
-    } catch {
-      // Router offline atau timeout
+      activeSession = await getActiveSession(router, customer.pppoe_username);
+    } catch (err) {
+      routerError = (err as Error).message;
     }
   }
 
@@ -176,11 +179,22 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
               <span style={{ color: 'var(--text-muted)' }}>PPPoE Password</span>
               <code className="font-mono" style={{ color: '#fcd34d' }}>{customer.pppoe_password}</code>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Router (NAS)</span>
+              {router ? (
+                <Link href={`/routers?router=${router.id}`} style={{ color: '#93c5fd', fontWeight: 600 }}>
+                  📡 {router.name}
+                  {!router.enabled && <span style={{ color: '#fbbf24', fontWeight: 500 }}> (nonaktif)</span>}
+                </Link>
+              ) : (
+                <span style={{ color: 'var(--text-dim)' }}>Tanpa router</span>
+              )}
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Profil di MikroTik</span>
               <span>
                 {customer.status === 'isolated' ? (
-                  <span style={{ color: '#f87171', fontWeight: 700 }}>{settings.isolir_profile} (Terisolir)</span>
+                  <span style={{ color: '#f87171', fontWeight: 700 }}>{router?.isolir_profile ?? 'ISOLIR'} (Terisolir)</span>
                 ) : (
                   <span style={{ color: '#a78bfa', fontWeight: 600 }}>{customer.mikrotik_profile}</span>
                 )}
@@ -225,9 +239,21 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         {/* Status Sesi MikroTik Realtime */}
         <div className="card">
           <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
-            Status Router MikroTik
+            Status Sesi PPPoE{router ? ` • ${router.name}` : ''}
           </h2>
-          {activeSession ? (
+          {!router || !isRouterUsable(router) ? (
+            <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px' }}>
+              <div>🔌 {router ? `Router ${router.name} sedang nonaktif` : 'Pelanggan belum dipasangkan ke router'}</div>
+              <div style={{ fontSize: '11.5px', marginTop: '4px' }}>
+                Pilih / aktifkan router lewat tombol Edit pelanggan atau menu Pengaturan.
+              </div>
+            </div>
+          ) : routerError ? (
+            <div style={{ padding: '16px 0', textAlign: 'center', color: '#f87171', fontSize: '13px' }}>
+              <div>⚠️ Tidak bisa menghubungi {router.name}</div>
+              <div style={{ fontSize: '11.5px', marginTop: '4px', color: 'var(--text-dim)' }}>{routerError}</div>
+            </div>
+          ) : activeSession ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontWeight: 700 }}>
                 <span className="badge-dot" style={{ background: '#10b981' }} />
@@ -250,7 +276,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
             <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px' }}>
               <div>💤 PPPoE Sedang Tidak Terhubung (Offline)</div>
               <div style={{ fontSize: '11.5px', marginTop: '4px' }}>
-                ONT/Modem pelanggan mati atau router belum terkoneksi.
+                ONT/Modem pelanggan mati atau belum dial ke {router.name}.
               </div>
             </div>
           )}

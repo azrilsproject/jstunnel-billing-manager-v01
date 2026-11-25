@@ -5,14 +5,19 @@ import { formatDate } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { deleteCustomerDirect } from '@/app/actions/customers';
 import { DeleteConfirmForm } from '@/components/DeleteConfirmForm';
+import { listRoutersWithStats } from '@/lib/routers';
 
 type Props = {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; router?: string }>;
 };
 
 export default async function CustomersPage({ searchParams }: Props) {
   await verifySession();
-  const { q = '', status = '' } = await searchParams;
+  const { q = '', status = '', router = '' } = await searchParams;
+  const routers = await listRoutersWithStats();
+  const unassigned =
+    (await query<{ n: number }>('SELECT count(*)::int AS n FROM customers WHERE router_id IS NULL'))[0]?.n ?? 0;
+  const allCount = routers.reduce((n, r) => n + r.customer_total, 0) + unassigned;
 
   let where = '1=1';
   const params: unknown[] = [];
@@ -27,6 +32,20 @@ export default async function CustomersPage({ searchParams }: Props) {
     where += ` AND c.status = $${params.length}`;
   }
 
+  if (router === 'none') {
+    where += ' AND c.router_id IS NULL';
+  } else if (router && parseInt(router, 10)) {
+    params.push(parseInt(router, 10));
+    where += ` AND c.router_id = $${params.length}`;
+  }
+
+  const qs = (patch: Record<string, string>) => {
+    const merged: Record<string, string> = { q, status, router, ...patch };
+    const p = new URLSearchParams(Object.entries(merged).filter(([, v]) => !!v));
+    const out = p.toString();
+    return out ? `/customers?${out}` : '/customers';
+  };
+
   const customers = await query<{
     id: number;
     code: string;
@@ -40,13 +59,15 @@ export default async function CustomersPage({ searchParams }: Props) {
     isolir_day: number;
     package_name: string;
     package_price: number;
+    router_name: string | null;
   }>(`
     SELECT 
       c.id, c.code, c.name, c.phone, c.pppoe_username, c.status, c.billing_type,
       c.active_date, c.due_day, c.isolir_day,
-      p.name AS package_name, p.price AS package_price
+      p.name AS package_name, p.price AS package_price, r.name AS router_name
     FROM customers c
     JOIN packages p ON p.id = c.package_id
+    LEFT JOIN routers r ON r.id = c.router_id
     WHERE ${where}
     ORDER BY c.created_at DESC
   `, params);
@@ -78,9 +99,36 @@ export default async function CustomersPage({ searchParams }: Props) {
         </div>
       </div>
 
+      {/* Router Switcher */}
+      {routers.length > 0 && (
+        <div className="router-switcher" aria-label="Filter router">
+          <Link href={qs({ router: '' })} className={`router-tab ${!router ? 'is-active' : ''}`}>
+            Semua Router <span className="router-tab-count">{allCount}</span>
+          </Link>
+          {routers.map((r) => (
+            <Link
+              key={r.id}
+              href={qs({ router: String(r.id) })}
+              className={`router-tab ${router === String(r.id) ? 'is-active' : ''}`}
+              title={`${r.host}:${r.port}${r.enabled ? '' : ' (nonaktif)'}`}
+            >
+              <span className="badge-dot" style={{ background: r.enabled ? '#10b981' : '#94a3b8' }} />
+              {r.name}
+              <span className="router-tab-count">{r.customer_total}</span>
+            </Link>
+          ))}
+          {unassigned > 0 && (
+            <Link href={qs({ router: 'none' })} className={`router-tab ${router === 'none' ? 'is-active' : ''}`}>
+              Tanpa Router <span className="router-tab-count">{unassigned}</span>
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Filter & Search Bar */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
         <form method="GET" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {router && <input type="hidden" name="router" value={router} />}
           <input
             name="q"
             type="text"
@@ -101,7 +149,7 @@ export default async function CustomersPage({ searchParams }: Props) {
             Cari / Filter
           </button>
 
-          {(q || status) && (
+          {(q || status || router) && (
             <Link href="/customers" className="btn btn-secondary" style={{ color: 'var(--text-muted)' }}>
               Reset
             </Link>
@@ -121,6 +169,7 @@ export default async function CustomersPage({ searchParams }: Props) {
               <th>Kode / Pelanggan</th>
               <th>PPPoE Secret</th>
               <th>Paket Langganan</th>
+              <th>Router</th>
               <th>Tgl Aktif</th>
               <th>Jatuh Tempo</th>
               <th style={{ textAlign: 'center' }}>Tgl Isolir</th>
@@ -131,7 +180,7 @@ export default async function CustomersPage({ searchParams }: Props) {
           <tbody>
             {customers.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
                   Tidak ada pelanggan yang cocok dengan pencarian atau belum ada data.
                 </td>
               </tr>
@@ -169,6 +218,13 @@ export default async function CustomersPage({ searchParams }: Props) {
                       </span>
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{rupiah(c.package_price)}/bln</div>
+                  </td>
+                  <td>
+                    {c.router_name ? (
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#93c5fd' }}>📡 {c.router_name}</span>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>—</span>
+                    )}
                   </td>
                   <td>
                     <div style={{ fontSize: '13px' }}>{formatDate(c.active_date)}</div>

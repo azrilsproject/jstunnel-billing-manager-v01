@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { importCustomersCsvAction, type ImportCsvResult } from '@/app/actions/customers';
+import { RouterOption, RouterSelect } from '@/components/RouterSelect';
 
-export function CustomerImportForm() {
+export function CustomerImportForm({ routers }: { routers: RouterOption[] }) {
   const [state, setState] = useState<ImportCsvResult | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
@@ -277,6 +278,12 @@ export function CustomerImportForm() {
               marginBottom: '24px',
             }}
           >
+            <RouterSelect
+              routers={routers}
+              label="Pasangkan semua pelanggan hasil impor ke router"
+              help="Semua baris CSV akan dipasangkan ke router ini. Bisa diubah per pelanggan nanti."
+            />
+
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -286,7 +293,7 @@ export function CustomerImportForm() {
                 style={{ marginTop: '3px', cursor: 'pointer' }}
               />
               <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>
-                <strong>Sinkronkan User Secret ke MikroTik:</strong> Buat otomatis PPP Secret pada router MikroTik aktif untuk setiap pelanggan baru yang berhasil diimpor.
+                <strong>Sinkronkan User Secret ke MikroTik:</strong> Buat otomatis PPP Secret pada router yang dipilih di atas untuk setiap pelanggan baru yang berhasil diimpor.
               </span>
             </label>
 
