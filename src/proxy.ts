@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
-  const token = request.cookies.get('jb_session')?.value;
+  const token = request.cookies.get(process.env.SESSION_COOKIE_NAME || 'jb_session')?.value;
   let valid = false;
   if (token && process.env.SESSION_SECRET) {
     try {

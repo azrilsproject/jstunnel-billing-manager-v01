@@ -2,7 +2,8 @@ import 'server-only';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-export const SESSION_COOKIE = 'jb_session';
+// Nama cookie bisa dibedakan per instance (banyak port di satu host) lewat SESSION_COOKIE_NAME
+export const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME || 'jb_session';
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 hari
 
 export type SessionPayload = { adminId: number; username: string; name: string };

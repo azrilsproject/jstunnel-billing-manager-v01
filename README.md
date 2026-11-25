@@ -60,8 +60,8 @@ Akses web browser di: **`http://localhost:3000`**
 Di VM baru, cukup clone lalu jalankan satu script:
 
 ```bash
-git clone git@github.com:azrilsproject/jamesnet-billing.git
-cd jamesnet-billing
+git clone git@github.com:azrilsproject/jstunnel-billing-manager-v01.git
+cd jstunnel-billing-manager-v01
 sudo ./install.sh
 ```
 
@@ -72,17 +72,19 @@ sudo ./install.sh
 4. Build Next.js produksi, menjalankan via PM2, auto-start saat VM reboot, dan membuka port di `ufw` bila aktif.
 5. Mengecek aplikasi sudah merespons, lalu menampilkan URL dan login.
 
+Installer akan **menanyakan port** aplikasi (default 3000). Untuk menjalankan **banyak instance di satu VM**, jalankan `./install.sh` lagi dan pilih port berbeda (mis. 3001). Tiap instance mendapat folder (`/opt/james-billing-<port>`), database, secret, cookie login, dan proses PM2 sendiri, jadi data dan login tidak saling bercampur.
+
 Opsi lewat environment variable:
 
 ```bash
-APP_PORT=8080 ADMIN_PASSWORD='PasswordKuat' sudo -E ./install.sh   # port & password admin awal
+APP_PORT=8080 ADMIN_PASSWORD='PasswordKuat' sudo -E ./install.sh   # lewati pertanyaan port, set password admin awal
 RESTORE_DUMP=1 sudo -E ./install.sh                                  # restore db/dump.sql ke DB kosong
 ```
 
 Update ke versi terbaru di VM yang sudah berjalan:
 
 ```bash
-./install.sh --update   # git pull, npm install, migrasi DB, build, restart PM2
+cd /opt/james-billing-3001 && ./install.sh --update   # per instance: git pull, migrasi DB, build, restart
 ```
 
 Setelah selesai, buka `http://IP-VM:3000`, login `admin` / `admin123` (ganti di menu Pengaturan), lalu tambahkan router di menu **Router MikroTik**.

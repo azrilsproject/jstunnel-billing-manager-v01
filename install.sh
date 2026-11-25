@@ -11,9 +11,12 @@
 #   (repo akan di-clone ke /opt/james-billing; set REPO_URL bila perlu)
 #
 # Variabel opsional (environment):
-#   REPO_URL      URL git repo (default: https://github.com/azrilsproject/jamesnet-billing.git)
+#   REPO_URL      URL git repo (default: git@github.com:azrilsproject/jstunnel-billing-manager-v01.git)
 #   INSTALL_DIR   Lokasi instalasi saat clone otomatis (default: /opt/james-billing)
-#   APP_PORT      Port aplikasi (default: 3000)
+#   APP_PORT      Port aplikasi. Bila tidak diset, installer akan menanyakan (default 3000).
+#                 Jalankan ulang dengan port lain untuk membuat instance tambahan
+#                 (folder, database, dan proses PM2 terpisah) di VM yang sama.
+#   INSTANCE_BASE Folder induk instance tambahan (default: /opt)
 #   ADMIN_PASSWORD  Password awal admin (default: admin123)
 #   RESTORE_DUMP  1 = restore db/dump.sql bila DB masih kosong (default: 0)
 # ==============================================================================
@@ -23,9 +26,10 @@ set -Eeuo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-REPO_URL="${REPO_URL:-https://github.com/azrilsproject/jamesnet-billing.git}"
+REPO_URL="${REPO_URL:-git@github.com:azrilsproject/jstunnel-billing-manager-v01.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/james-billing}"
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-}"
+INSTANCE_BASE="${INSTANCE_BASE:-/opt}"
 RESTORE_DUMP="${RESTORE_DUMP:-0}"
 APP_NAME="james-billing"
 DB_NAME="james_billing"
@@ -60,6 +64,11 @@ fi
 run_root() { $SUDO "$@"; }
 run_pg()   { if [ "$EUID" -eq 0 ]; then su postgres -c "psql -v ON_ERROR_STOP=1 $(printf '%q ' "$@")"; else sudo -u postgres psql -v ON_ERROR_STOP=1 "$@"; fi; }
 
+env_get() { [ -f "$2" ] && { grep -E "^$1=" "$2" | tail -1 | cut -d= -f2- || true; } || true; }
+port_in_use() { (echo >"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1; }
+valid_port() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
+can_prompt() { { : </dev/tty; } 2>/dev/null; }
+
 command -v apt-get >/dev/null 2>&1 || die "Installer ini mendukung Ubuntu/Debian (apt). Untuk OS lain, ikuti langkah manual di README."
 
 # ------------------------------------------------- lokasi kode (clone bila perlu)
@@ -84,16 +93,69 @@ ok "Direktori aplikasi: $APP_DIR"
 
 # ------------------------------------------------------------------ mode update
 if [ "$MODE" = "update" ]; then
-  log "Mode update: menarik kode terbaru"
+  [ -f .env ] || die "Folder ini belum terinstall (.env tidak ada). Jalankan ./install.sh tanpa --update."
+  APP_PORT="$(env_get PORT .env)"; APP_PORT="${APP_PORT:-3000}"
+  APP_NAME="$(env_get PM2_NAME .env)"; APP_NAME="${APP_NAME:-james-billing}"
+  log "Mode update: instance '${APP_NAME}' (port ${APP_PORT})"
   [ -d .git ] && git pull --ff-only || warn "Bukan git repo, lewati git pull"
   npm install --no-audit --no-fund
   npm run db:migrate
   npm run build
-  pm2 restart "$APP_NAME" --update-env || pm2 start ecosystem.config.cjs
+  PORT="$APP_PORT" PM2_NAME="$APP_NAME" pm2 restart "$APP_NAME" --update-env \
+    || PORT="$APP_PORT" PM2_NAME="$APP_NAME" pm2 start ecosystem.config.cjs
   pm2 save
   ok "Update selesai."
   exit 0
 fi
+
+# ------------------------------------------------- pilih port & instance
+# Satu instance = satu port + satu folder + satu database + satu proses PM2.
+CUR_PORT="$(env_get PORT "$APP_DIR/.env")"
+DEFAULT_PORT="${CUR_PORT:-3000}"
+
+resolve_instance() { # $1 = port -> set TARGET_DIR, SELF
+  if [ ! -f "$APP_DIR/.env" ] || [ "$CUR_PORT" = "$1" ]; then
+    TARGET_DIR="$APP_DIR"
+  else
+    TARGET_DIR="${INSTANCE_BASE}/james-billing-$1"
+  fi
+  SELF=0
+  if [ -f "$TARGET_DIR/.env" ] && [ "$(env_get PORT "$TARGET_DIR/.env")" = "$1" ]; then SELF=1; fi
+}
+
+if [ -z "$APP_PORT" ]; then
+  if can_prompt; then
+    echo -e "${BOLD}Di port berapa aplikasi ini akan dijalankan?${NC}"
+    echo -e "Tips: pilih port berbeda (mis. 3001, 3002) untuk membuat instance baru di VM yang sama."
+    while :; do
+      read -r -p "Port aplikasi [${DEFAULT_PORT}]: " ANS </dev/tty || true
+      ANS="${ANS:-$DEFAULT_PORT}"
+      if ! valid_port "$ANS"; then warn "Port tidak valid (1-65535)."; continue; fi
+      resolve_instance "$ANS"
+      if [ "$SELF" = "0" ] && port_in_use "$ANS"; then warn "Port ${ANS} sudah dipakai proses lain, pilih port lain."; continue; fi
+      APP_PORT="$ANS"; break
+    done
+  else
+    APP_PORT="$DEFAULT_PORT"
+    warn "Tidak ada terminal interaktif, memakai port ${APP_PORT} (set APP_PORT=xxxx untuk mengubah)."
+  fi
+fi
+valid_port "$APP_PORT" || die "APP_PORT tidak valid: $APP_PORT"
+resolve_instance "$APP_PORT"
+if [ "$SELF" = "0" ] && port_in_use "$APP_PORT"; then die "Port ${APP_PORT} sudah dipakai proses lain."; fi
+
+if [ "$SELF" = "1" ]; then
+  # instance lama: pakai nama yang sudah tersimpan
+  OLD_URL="$(env_get DATABASE_URL "$TARGET_DIR/.env")"
+  DB_USER="$(echo "$OLD_URL" | sed -E 's#^postgres(ql)?://([^:]+):.*#\2#')"
+  DB_NAME="$(echo "$OLD_URL" | sed -E 's#.*/([^/?]+)(\?.*)?$#\1#')"
+  APP_NAME="$(env_get PM2_NAME "$TARGET_DIR/.env")"; APP_NAME="${APP_NAME:-james-billing}"
+elif [ "$APP_PORT" != "3000" ]; then
+  APP_NAME="james-billing-${APP_PORT}"
+  DB_NAME="james_billing_${APP_PORT}"
+  DB_USER="james_billing_${APP_PORT}"
+fi
+echo -e "Instance: ${BOLD}${APP_NAME}${NC} | port ${BOLD}${APP_PORT}${NC} | folder ${TARGET_DIR} | database ${DB_NAME}"
 
 # ------------------------------------------------------------ 1. paket dasar
 log "[1/8] Menginstall dependensi sistem dasar"
@@ -112,6 +174,21 @@ if [ "$MEM_MB" -lt 1800 ] && [ "$SWAP_MB" -lt 512 ] && [ ! -f /swapfile ]; then
   grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | run_root tee -a /etc/fstab >/dev/null
   ok "Swap 2GB aktif"
 fi
+
+# folder instance tambahan (port berbeda dari instance di folder ini)
+if [ "$TARGET_DIR" != "$APP_DIR" ] && [ ! -d "$TARGET_DIR/.git" ]; then
+  log "Membuat folder instance baru: ${TARGET_DIR}"
+  ORIGIN="$(git -c safe.directory='*' -C "$APP_DIR" remote get-url origin 2>/dev/null || echo "$REPO_URL")"
+  run_root mkdir -p "$(dirname "$TARGET_DIR")"
+  if [ -d "$APP_DIR/.git" ]; then
+    run_root git -c safe.directory='*' clone --local "$APP_DIR" "$TARGET_DIR"
+    run_root git -c safe.directory='*' -C "$TARGET_DIR" remote set-url origin "$ORIGIN"
+  else
+    run_root git clone "$REPO_URL" "$TARGET_DIR"
+  fi
+  run_root chown -R "$(id -un)":"$(id -gn)" "$TARGET_DIR"
+fi
+if [ "$TARGET_DIR" != "$APP_DIR" ]; then APP_DIR="$TARGET_DIR"; cd "$APP_DIR"; fi
 
 # ------------------------------------------------------------ 2. Node.js
 log "[2/8] Memeriksa Node.js (>= 20.9)"
@@ -184,6 +261,8 @@ SESSION_SECRET=$(openssl rand -hex 32)
 CRON_SECRET=$(openssl rand -hex 16)
 SCHEDULER_INTERVAL_MINUTES=10
 PORT=${APP_PORT}
+PM2_NAME=${APP_NAME}
+SESSION_COOKIE_NAME=jb_session_${APP_PORT}
 EOF
   chmod 600 .env
   ok ".env dibuat dengan secret acak"
@@ -220,7 +299,7 @@ if ! command -v pm2 >/dev/null 2>&1; then
   run_root npm install -g pm2
 fi
 pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
-PORT="$APP_PORT" pm2 start ecosystem.config.cjs --update-env
+PORT="$APP_PORT" PM2_NAME="$APP_NAME" pm2 start ecosystem.config.cjs --update-env
 pm2 save
 if command -v systemctl >/dev/null 2>&1; then
   run_root env "PATH=$PATH" "$(command -v pm2)" startup systemd -u "$(id -un)" --hp "$HOME" >/dev/null 2>&1 \
@@ -252,11 +331,12 @@ fi
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════════${NC}"
 echo -e "Dashboard : ${CYAN}http://${SERVER_IP}:${APP_PORT}${NC}"
 echo -e "Login     : ${YELLOW}admin${NC} / ${YELLOW}${ADMIN_PASSWORD:-admin123}${NC}  (segera ganti di menu Pengaturan)"
-echo -e "Direktori : ${APP_DIR}"
+echo -e "Instance  : ${APP_NAME}  (folder ${APP_DIR}, database ${DB_NAME})"
 echo -e ""
 echo -e "Langkah berikutnya: buka menu ${BOLD}Router MikroTik${NC} lalu tambahkan router Anda."
 echo -e ""
 echo -e "Perintah berguna:"
 echo -e "  pm2 status | pm2 logs ${APP_NAME} | pm2 restart ${APP_NAME}"
-echo -e "  ./install.sh --update    # tarik kode terbaru, migrasi, build, restart"
+echo -e "  cd ${APP_DIR} && ./install.sh --update    # tarik kode terbaru, migrasi, build, restart"
+echo -e "Mau instance lain di VM ini? Jalankan ./install.sh lagi lalu pilih port berbeda."
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════════${NC}\n"
