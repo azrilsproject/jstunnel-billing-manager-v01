@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StatTile } from '@/components/ui';
 import { verifySession } from '@/lib/dal';
 import { query } from '@/lib/db';
 import { formatDate, formatDateTime, monthOptions, periodLabel, todayStr } from '@/lib/dates';
@@ -176,139 +177,70 @@ export default async function ReportsPage({ searchParams }: Props) {
   const screenContent = (
     <div>
       {/* Filter Bar */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        <form method="GET" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div>
-            <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
-              Periode Bulan
-            </label>
-            <select name="period" defaultValue={period} className="form-select" style={{ minWidth: '170px' }}>
-              <option value="">Semua Periode</option>
+      <section className="panel" style={{ marginBottom: '20px' }}>
+        <form method="GET" className="filter-grid">
+          <label className="filter-field">
+            <span className="form-label">Periode</span>
+            <select name="period" defaultValue={period} className="form-select">
+              <option value="">Semua periode</option>
               {periods.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
+                <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
-              Status Tagihan
-            </label>
-            <select name="status" defaultValue={status} className="form-select" style={{ minWidth: '140px' }}>
-              <option value="">Semua Status</option>
-              <option value="paid">✅ Lunas</option>
-              <option value="unpaid">⏳ Belum Bayar</option>
-              <option value="void">🚫 Batal</option>
+          </label>
+          <label className="filter-field">
+            <span className="form-label">Status</span>
+            <select name="status" defaultValue={status} className="form-select">
+              <option value="">Semua status</option>
+              <option value="paid">Lunas</option>
+              <option value="unpaid">Belum bayar</option>
+              <option value="void">Batal</option>
             </select>
-          </div>
-
-          <div>
-            <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
-              Metode Pembayaran
-            </label>
-            <select name="method" defaultValue={method} className="form-select" style={{ minWidth: '150px' }}>
-              <option value="">Semua Metode</option>
+          </label>
+          <label className="filter-field">
+            <span className="form-label">Metode bayar</span>
+            <select name="method" defaultValue={method} className="form-select">
+              <option value="">Semua metode</option>
               <option value="Cash">Cash / Tunai</option>
               <option value="Transfer BCA">Transfer BCA</option>
               <option value="Transfer Mandiri">Transfer Mandiri</option>
               <option value="Transfer BRI">Transfer BRI</option>
               <option value="QRIS">QRIS</option>
             </select>
-          </div>
-
-          <div>
-            <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
-              Sistem Tagihan
-            </label>
-            <select name="billing_type" defaultValue={billingType} className="form-select" style={{ minWidth: '140px' }}>
-              <option value="">Semua Tipe</option>
-              <option value="prepaid">⚡ Prabayar</option>
-              <option value="postpaid">📅 Pascabayar</option>
+          </label>
+          <label className="filter-field">
+            <span className="form-label">Sistem tagihan</span>
+            <select name="billing_type" defaultValue={billingType} className="form-select">
+              <option value="">Semua tipe</option>
+              <option value="prepaid">Prabayar</option>
+              <option value="postpaid">Pascabayar</option>
             </select>
-          </div>
-
-          <div>
-            <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>
-              Pencarian
-            </label>
-            <input
-              name="q"
-              type="text"
-              defaultValue={q}
-              placeholder="Cari invoice / pelanggan..."
-              className="form-input"
-              style={{ width: '180px' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end', marginTop: 'auto' }}>
-            <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px' }}>
-              🔍 Tampilkan
-            </button>
+          </label>
+          <label className="filter-field">
+            <span className="form-label">Cari</span>
+            <input name="q" type="text" defaultValue={q} placeholder="Invoice / pelanggan…" className="form-input" />
+          </label>
+          <div className="filter-actions">
+            <button type="submit" className="btn btn-primary">Tampilkan</button>
             {(period !== defaultPeriod || status || method || billingType || q) && (
-              <Link href="/reports" className="btn btn-secondary" style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>
-                Reset
-              </Link>
+              <Link href="/reports" className="btn btn-secondary text-muted">Reset</Link>
             )}
           </div>
         </form>
-      </div>
+      </section>
 
-      {/* KPI Summary Cards */}
-      <div className="stat-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
-          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
-            💰
-          </div>
-          <div className="stat-title">Kas Masuk (Lunas)</div>
-          <div className="stat-value" style={{ color: '#10b981' }}>
-            {rupiah(totalPaid)}
-          </div>
-          <div className="stat-sub">
-            <strong>{paidCount}</strong> transaksi lunas
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
-            ⏳
-          </div>
-          <div className="stat-title">Piutang (Belum Bayar)</div>
-          <div className="stat-value" style={{ color: '#f59e0b' }}>
-            {rupiah(totalUnpaid)}
-          </div>
-          <div className="stat-sub">
-            <strong>{unpaidCount}</strong> tagihan belum selesai
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-          <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
-            📊
-          </div>
-          <div className="stat-title">Total Tagihan Terbit</div>
-          <div className="stat-value">
-            {rupiah(totalGross)}
-          </div>
-          <div className="stat-sub">
-            <strong>{invoices.length}</strong> invoice periode ini
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6' }}>
-            🎯
-          </div>
-          <div className="stat-title">Tingkat Kolektibilitas</div>
-          <div className="stat-value" style={{ color: '#8b5cf6' }}>
-            {collectionRate}%
-          </div>
-          <div className="stat-sub">
-            {voidCount > 0 ? `${voidCount} invoice dibatalkan` : 'Persentase keberhasilan bayar'}
-          </div>
-        </div>
+      {/* KPI Summary */}
+      <div className="stats-grid">
+        <StatTile label="Kas masuk (lunas)" value={rupiah(totalPaid)} sub={`${paidCount} transaksi lunas`} icon="wallet" tone="green" />
+        <StatTile label="Piutang" value={rupiah(totalUnpaid)} sub={`${unpaidCount} tagihan belum selesai`} icon="clock" tone="amber" />
+        <StatTile label="Total tagihan terbit" value={rupiah(totalGross)} sub={`${invoices.length} invoice`} icon="receipt" tone="blue" />
+        <StatTile
+          label="Kolektibilitas"
+          value={`${collectionRate}%`}
+          sub={voidCount > 0 ? `${voidCount} invoice dibatalkan` : 'Persentase pembayaran masuk'}
+          icon="check"
+          tone="violet"
+        />
       </div>
 
       {/* Breakdown Analytics Section */}

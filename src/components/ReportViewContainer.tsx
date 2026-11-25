@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Icon, PageHeader } from '@/components/ui';
 
 type Props = {
   screenContent: React.ReactNode;
@@ -14,90 +15,29 @@ export function ReportViewContainer({ screenContent, printContent, exportUrl }: 
   return (
     <div>
       {/* 1. Page Header & Actions Bar (Hidden on Print) */}
-      <div className="page-header no-print">
-        <div>
-          <h1 className="page-title">📈 Laporan Keuangan & Penagihan</h1>
-          <p className="page-desc">
-            Rekapitulasi pendapatan kas masuk, piutang tertunggak, sebaran paket, dan rincian transaksi.
-          </p>
-        </div>
-
-        <div className="header-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Mode Switcher: Dashboard vs Pratinjau Cetak */}
-          <div
-            style={{
-              display: 'inline-flex',
-              background: 'var(--bg-elevated)',
-              padding: '3px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setViewMode('screen')}
-              className="btn btn-sm"
-              style={{
-                background: viewMode === 'screen' ? 'var(--primary)' : 'transparent',
-                color: viewMode === 'screen' ? '#ffffff' : 'var(--text-muted)',
-                fontWeight: 600,
-                padding: '6px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              📊 Dasbor Interaktif
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('preview')}
-              className="btn btn-sm"
-              style={{
-                background: viewMode === 'preview' ? 'var(--primary)' : 'transparent',
-                color: viewMode === 'preview' ? '#ffffff' : 'var(--text-muted)',
-                fontWeight: 600,
-                padding: '6px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              📄 Pratinjau Lembar Cetak A4
-            </button>
-          </div>
-
-          {/* Print Button */}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: 700,
-              padding: '8px 16px',
-              boxShadow: '0 2px 10px rgba(59, 130, 246, 0.4)',
-            }}
-            title="Cetak Laporan ke Printer atau Simpan sebagai PDF (A4 Landscape)"
-          >
-            <span>🖨️</span>
-            <span>Cetak / Simpan PDF</span>
-          </button>
-
-          {/* Export CSV Button */}
-          <a
-            href={exportUrl}
-            className="btn btn-secondary"
-            download
-            title="Download laporan transaksi dalam format file CSV / Excel"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, padding: '8px 14px' }}
-          >
-            <span>📥</span>
-            <span>Export CSV</span>
-          </a>
-        </div>
+      <div className="no-print">
+        <PageHeader
+          title="Laporan"
+          desc="Kas masuk, piutang, sebaran paket, dan rincian transaksi."
+          actions={
+            <>
+              <div className="tab-bar" style={{ margin: 0 }}>
+                <button type="button" onClick={() => setViewMode('screen')} className={`tab-link ${viewMode === 'screen' ? 'is-active' : ''}`}>
+                  Ringkasan
+                </button>
+                <button type="button" onClick={() => setViewMode('preview')} className={`tab-link ${viewMode === 'preview' ? 'is-active' : ''}`}>
+                  Lembar cetak A4
+                </button>
+              </div>
+              <a href={exportUrl} className="btn btn-secondary" download title="Unduh transaksi (CSV / Excel)">
+                <Icon name="download" size={16} /> Export CSV
+              </a>
+              <button type="button" onClick={() => window.print()} className="btn btn-primary" title="Cetak atau simpan PDF (A4 landscape)">
+                Cetak / PDF
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* 2. Interactive Screen View (Active in 'screen' mode, completely hidden on print) */}

@@ -5,6 +5,7 @@ import { savePackage, deletePackage } from '@/app/actions/packages';
 import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { rupiah } from '@/lib/format';
+import { EmptyState, Icon } from '@/components/ui';
 
 type Package = {
   id: number;
@@ -47,7 +48,7 @@ export function PackageList({ initialPackages }: Props) {
             onClick={() => setShowAdd(true)}
             className="btn btn-primary"
           >
-            + Tambah Paket Baru
+            <Icon name="plus" size={16} /> Tambah Paket
           </button>
         )}
 
@@ -65,7 +66,7 @@ export function PackageList({ initialPackages }: Props) {
                 }}
                 className="btn btn-secondary btn-sm"
               >
-                ✕ Tutup
+                Tutup
               </button>
             </div>
 
@@ -173,97 +174,71 @@ export function PackageList({ initialPackages }: Props) {
         )}
       </div>
 
-      {/* Tabel Paket */}
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Nama Paket</th>
-              <th>Tarif Bulanan</th>
-              <th>Profile MikroTik</th>
-              <th>Kecepatan</th>
-              <th>Pelanggan Aktif</th>
-              <th>Keterangan</th>
-              <th style={{ textAlign: 'right' }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {initialPackages.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-dim)' }}>
-                  Belum ada paket langganan. Klik &quot;Tambah Paket Baru&quot; di atas.
-                </td>
-              </tr>
-            ) : (
-              initialPackages.map((pkg) => (
-                <tr key={pkg.id}>
-                  <td>
-                    <strong style={{ color: '#fff', fontSize: '14.5px' }}>{pkg.name}</strong>
-                  </td>
-                  <td>
-                    <strong style={{ color: '#34d399', fontSize: '14px' }}>{rupiah(pkg.price)}</strong>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}> /bln</span>
-                  </td>
-                  <td>
-                    <code className="font-mono" style={{ color: '#a78bfa', background: 'rgba(139, 92, 246, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
-                      {pkg.mikrotik_profile}
-                    </code>
-                  </td>
-                  <td>
-                    <span style={{ color: '#fff' }}>{pkg.speed || '-'}</span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600, color: pkg.customer_count > 0 ? '#60a5fa' : 'var(--text-dim)' }}>
-                      {pkg.customer_count} Pelanggan
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--text-muted)' }}>
-                    {pkg.description || '-'}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditing(pkg);
-                          setShowAdd(false);
-                        }}
-                        className="btn btn-secondary btn-sm"
-                      >
-                        Edit
-                      </button>
-
-                      {pkg.customer_count === 0 ? (
-                        <form
-                          action={delAction}
-                          onSubmit={(e) => {
-                            if (!confirm(`Hapus paket "${pkg.name}"?`)) e.preventDefault();
-                          }}
-                        >
-                          <input type="hidden" name="id" value={pkg.id} />
-                          <SubmitButton variant="danger" size="sm">
-                            Hapus
-                          </SubmitButton>
-                        </form>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="btn btn-danger btn-sm"
-                          style={{ opacity: 0.45, cursor: 'not-allowed' }}
-                          title={`Paket "${pkg.name}" tidak dapat dihapus karena masih digunakan oleh ${pkg.customer_count} pelanggan. Silakan ubah paket pelanggan terlebih dahulu.`}
-                        >
-                          Hapus
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Kartu paket */}
+      {initialPackages.length === 0 ? (
+        <section className="panel">
+          <EmptyState icon="bolt" title="Belum ada paket">
+            Buat paket pertama (tarif + profile PPP) agar bisa dipilih saat menambah pelanggan.
+          </EmptyState>
+        </section>
+      ) : (
+        <div className="pkg-grid">
+          {initialPackages.map((pkg) => (
+            <article key={pkg.id} className="pkg-card">
+              <div className="pkg-head">
+                <div>
+                  <h3 className="pkg-name">{pkg.name}</h3>
+                  {pkg.speed && <span className="pill pill-blue">{pkg.speed}</span>}
+                </div>
+                <div className="pkg-price">
+                  {rupiah(pkg.price)}
+                  <span>/bln</span>
+                </div>
+              </div>
+              {pkg.description && <p className="pkg-desc">{pkg.description}</p>}
+              <div className="pkg-meta">
+                <span className="code-tag" title="Profile PPP di MikroTik">{pkg.mikrotik_profile}</span>
+                <span className="text-muted" style={{ fontSize: '12.5px' }}>
+                  <strong style={{ color: 'var(--text-main)' }}>{pkg.customer_count}</strong> pelanggan
+                </span>
+              </div>
+              <div className="pkg-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(pkg);
+                    setShowAdd(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Icon name="edit" size={14} /> Edit
+                </button>
+                {pkg.customer_count === 0 ? (
+                  <form
+                    action={delAction}
+                    onSubmit={(e) => {
+                      if (!confirm(`Hapus paket "${pkg.name}"?`)) e.preventDefault();
+                    }}
+                  >
+                    <input type="hidden" name="id" value={pkg.id} />
+                    <SubmitButton variant="danger" size="sm">Hapus</SubmitButton>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn btn-danger btn-sm"
+                    title={`Paket "${pkg.name}" masih dipakai ${pkg.customer_count} pelanggan. Pindahkan pelanggannya dulu.`}
+                  >
+                    Hapus
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

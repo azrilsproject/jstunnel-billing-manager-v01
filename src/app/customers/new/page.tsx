@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageHeader } from '@/components/ui';
 import { verifySession } from '@/lib/dal';
 import { query } from '@/lib/db';
 import { todayStr } from '@/lib/dates';
@@ -28,17 +28,11 @@ export default async function NewCustomerPage() {
 
   return (
     <div style={{ maxWidth: '840px', margin: '0 auto' }}>
-      <div className="page-header">
-        <div>
-          <Link href="/customers" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            ← Kembali ke Daftar Pelanggan
-          </Link>
-          <h1 className="page-title" style={{ marginTop: '8px' }}>Tambah Pelanggan Baru</h1>
-          <p className="page-desc">
-            Daftarkan pelanggan baru, tentukan tanggal aktif dan tanggal isolir bulanan.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: '/customers', label: 'Daftar pelanggan' }}
+        title="Tambah pelanggan"
+        desc="Daftarkan pelanggan baru dan tentukan jadwal tagihan serta isolir."
+      />
 
       <CustomerForm
         packages={packages}

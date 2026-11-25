@@ -222,7 +222,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
           className="btn btn-secondary btn-sm"
           style={{ fontSize: '12px' }}
         >
-          ⚙️ {showConfig ? 'Sembunyikan Opsi Parameter' : 'Sesuaikan IP & Parameter'}
+          {showConfig ? 'Sembunyikan Opsi Parameter' : 'Sesuaikan IP & Parameter'}
         </button>
       </div>
 
@@ -319,7 +319,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
               transition: 'all 0.15s ease',
             }}
           >
-            <span>🚀 RouterOS v7 (ROS 7)</span>
+            <span>RouterOS v7 (ROS 7)</span>
             <span style={{ fontSize: '10.5px', background: rosVersion === 'ros7' ? 'rgba(255,255,255,0.2)' : 'rgba(37,99,235,0.1)', padding: '1px 6px', borderRadius: '4px' }}>
               Modern
             </span>
@@ -343,7 +343,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
               transition: 'all 0.15s ease',
             }}
           >
-            <span>📟 RouterOS v6 (ROS 6)</span>
+            <span>RouterOS v6 (ROS 6)</span>
             <span style={{ fontSize: '10.5px', background: rosVersion === 'ros6' ? 'rgba(255,255,255,0.2)' : 'rgba(100,116,139,0.1)', padding: '1px 6px', borderRadius: '4px' }}>
               Legacy
             </span>
@@ -367,7 +367,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
             }}
             title="Menggunakan Web Proxy internal MikroTik (Sangat direkomendasikan)"
           >
-            ⭐ Web Proxy Redirect (Rekomendasi)
+            Web Proxy Redirect (Rekomendasi)
           </button>
 
           <button
@@ -397,7 +397,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
             className="btn btn-secondary btn-sm"
             title="Download script format .rsc untuk MikroTik"
           >
-            💾 Unduh .rsc
+            Unduh .rsc
           </button>
 
           <button
@@ -428,7 +428,7 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
         }}
       >
         <div>
-          🔗 URL Redirect Tujuan Pelanggan: <strong className="font-mono" style={{ color: '#60a5fa' }}>{fullUrl}</strong>
+          URL Redirect Tujuan Pelanggan: <strong className="font-mono" style={{ color: '#60a5fa' }}>{fullUrl}</strong>
         </div>
         <div style={{ color: 'var(--text-dim)', fontSize: '11.5px' }}>
           Versi Terpilih: <strong>{rosVersion.toUpperCase()}</strong> ({method === 'proxy' ? 'Web Proxy 302' : 'Direct DST-NAT'})
@@ -518,12 +518,12 @@ export function MikrotikScriptGenerator({ defaultProfile = 'ISOLIR' }: Props) {
         }}
       >
         <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
-          💡 Cara Menggunakan di MikroTik:
+          Cara Menggunakan di MikroTik:
         </strong>
         <ol style={{ margin: '0 0 0 18px', padding: 0 }}>
           <li>Buka aplikasi <strong>Winbox</strong> dan login ke router MikroTik Anda.</li>
           <li>Klik menu <strong>New Terminal</strong> di sebelah kiri.</li>
-          <li>Klik tombol <strong>📋 Salin Script (Copy)</strong> di atas, lalu paste (klik kanan &gt; Paste) ke dalam terminal MikroTik.</li>
+          <li>Klik tombol <strong>Salin Script (Copy)</strong> di atas, lalu paste (klik kanan &gt; Paste) ke dalam terminal MikroTik.</li>
           <li>Tekan <strong>Enter</strong> untuk mengeksekusi semua konfigurasi secara otomatis.</li>
           <li>
             Selesai! Saat sistem billing mengisolir pelanggan (status terisolir), secret PPPoE pelanggan otomatis dialihkan ke profile <code>{profileName}</code> dan saat mereka membuka browser, akan langsung dialihkan ke halaman web tagihan.

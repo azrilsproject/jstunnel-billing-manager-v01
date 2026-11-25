@@ -19,8 +19,8 @@ export function SettingsClient({ initialSettings }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* 1. Pengaturan Identitas Usaha & Invoice */}
       <div className="card">
-        <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
-          🏢 Identitas Usaha & Aturan Penagihan
+        <h2 className="form-section-title">
+          Identitas Usaha & Aturan Penagihan
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
           Informasi ini dicetak pada lembar invoice resmi untuk pelanggan.
@@ -133,7 +133,7 @@ export function SettingsClient({ initialSettings }: Props) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
             <SubmitButton className="btn-primary">
-              💾 Simpan Pengaturan Usaha
+              Simpan Pengaturan Usaha
             </SubmitButton>
           </div>
         </form>
@@ -141,8 +141,8 @@ export function SettingsClient({ initialSettings }: Props) {
 
       {/* 4. Ganti Password Admin */}
       <div className="card">
-        <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>
-          🔒 Keamanan Akun Administrator
+        <h2 className="form-section-title">
+          Keamanan Akun Administrator
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
           Ganti password login admin untuk keamanan sistem billing Anda.
@@ -199,7 +199,7 @@ export function SettingsClient({ initialSettings }: Props) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
             <SubmitButton variant="secondary">
-              🔑 Perbarui Password
+              Perbarui Password
             </SubmitButton>
           </div>
         </form>

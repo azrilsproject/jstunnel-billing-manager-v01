@@ -39,7 +39,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
 
       <form action={formAction}>
         {/* Bagian 1: Data Identitas Pelanggan */}
-        <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+        <h2 className="form-section-title">
           1. Data Diri & Lokasi
         </h2>
 
@@ -88,7 +88,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
 
         {/* Bagian 2: Kredensial PPPoE MikroTik */}
         <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+          <h2 className="form-section-title">
             2. Akun PPPoE MikroTik & Paket Internet
           </h2>
         </div>
@@ -154,7 +154,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
 
         {/* Bagian 3: Siklus Tagihan, Tanggal Aktif & Tanggal Isolir */}
         <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
+          <h2 className="form-section-title">
             3. Tanggal Aktif & Jadwal Isolir Bulanan
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
@@ -282,7 +282,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
 
           <div className="form-group">
             <label className="form-label" htmlFor="isolir_day" style={{ color: '#f87171' }}>
-              🛡️ Tanggal Isolir Tiap Bulan (1–31) *
+              Tanggal Isolir Tiap Bulan (1–31) *
             </label>
             <input
               id="isolir_day"
@@ -370,7 +370,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
             Batal
           </Link>
           <SubmitButton className="btn-primary" loadingText="Menyimpan & Menghubungkan...">
-            💾 Simpan Pelanggan
+            Simpan Pelanggan
           </SubmitButton>
         </div>
       </form>

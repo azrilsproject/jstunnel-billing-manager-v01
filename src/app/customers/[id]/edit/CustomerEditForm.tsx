@@ -41,7 +41,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
         <form action={formAction}>
           <input type="hidden" name="id" value={customer.id} />
 
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+          <h2 className="form-section-title">
             1. Data Diri & Lokasi
           </h2>
 
@@ -91,7 +91,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
           </div>
 
           <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '16px' }}>
+            <h2 className="form-section-title">
               2. Akun PPPoE MikroTik & Paket Internet
             </h2>
           </div>
@@ -151,7 +151,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
           </div>
 
           <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
+            <h2 className="form-section-title">
               3. Tanggal Aktif & Jadwal Isolir Bulanan
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
@@ -276,7 +276,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
 
             <div className="form-group">
               <label className="form-label" htmlFor="isolir_day" style={{ color: '#f87171' }}>
-                🛡️ Tanggal Isolir Tiap Bulan (1–31) *
+                Tanggal Isolir Tiap Bulan (1–31) *
               </label>
               <input
                 id="isolir_day"
@@ -335,7 +335,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
               Batal
             </Link>
             <SubmitButton className="btn-primary" loadingText="Menyimpan...">
-              💾 Simpan Perubahan
+              Simpan Perubahan
             </SubmitButton>
           </div>
         </form>
@@ -376,7 +376,7 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
           </div>
 
           <SubmitButton variant="danger" loadingText="Menghapus...">
-            🗑️ Hapus Pelanggan Permanen
+            Hapus Pelanggan Permanen
           </SubmitButton>
         </form>
       </div>

@@ -35,7 +35,7 @@ export function RouterSelect({
   return (
     <div className="form-group">
       <label className="form-label" htmlFor={id}>
-        📡 {label}
+        {label}
       </label>
       <select id={id} name={name} defaultValue={value} className="form-select">
         {allowNone && <option value="">{noneLabel}</option>}

@@ -1,4 +1,5 @@
 import { getSettings } from '@/lib/settings';
+import { Icon } from '@/components/ui';
 
 export default async function IsolirPublicPage() {
   const settings = await getSettings();
@@ -7,7 +8,7 @@ export default async function IsolirPublicPage() {
     <div className="isolir-page-container">
       <div className="isolir-card">
         <div className="isolir-icon-badge">
-          🛡️
+          <Icon name="shield" size={30} />
         </div>
 
         <h1 className="isolir-title">
@@ -20,7 +21,7 @@ export default async function IsolirPublicPage() {
         {/* Kotak Rekening & Pembayaran */}
         <div className="isolir-bank-box">
           <div className="isolir-bank-header">
-            💳 Rekening Pembayaran Resmi {settings.company_name || 'JAMES NET'}
+            Rekening pembayaran resmi {settings.company_name || 'JAMES NET'}
           </div>
           <div className="isolir-bank-content">
             {settings.bank_info || 'Silakan hubungi admin atau customer service untuk nomor rekening pembayaran.'}
@@ -40,7 +41,7 @@ export default async function IsolirPublicPage() {
               className="btn btn-success"
               style={{ width: '100%', padding: '12px', fontSize: '15px' }}
             >
-              💬 Konfirmasi Pembayaran via WhatsApp
+              Konfirmasi pembayaran via WhatsApp
             </a>
           </div>
         )}

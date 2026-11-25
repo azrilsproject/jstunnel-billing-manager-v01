@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageHeader } from '@/components/ui';
 import { verifySession } from '@/lib/dal';
 import { CustomerImportForm } from './CustomerImportForm';
 import { query } from '@/lib/db';
@@ -12,17 +12,11 @@ export default async function ImportCustomerPage() {
 
   return (
     <div style={{ maxWidth: '880px', margin: '0 auto' }}>
-      <div className="page-header">
-        <div>
-          <Link href="/customers" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            ← Kembali ke Pelanggan PPPoE
-          </Link>
-          <h1 className="page-title" style={{ marginTop: '8px' }}>Import Pelanggan PPPoE</h1>
-          <p className="page-desc">
-            Unggah file CSV atau salin data pelanggan secara massal untuk pendaftaran otomatis ke sistem billing dan MikroTik.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: '/customers', label: 'Daftar pelanggan' }}
+        title="Import pelanggan"
+        desc="Unggah CSV atau tempel data untuk mendaftarkan banyak pelanggan sekaligus."
+      />
 
       <CustomerImportForm routers={routers} />
     </div>

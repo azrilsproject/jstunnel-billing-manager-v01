@@ -88,7 +88,7 @@ export default async function RoutersPage({ searchParams }: Props) {
         <div className="card">
           {routers.length === 0 && (
             <div className="onboarding">
-              <div className="onboarding-title">👋 Mulai dengan menambahkan router pertama</div>
+              <div className="onboarding-title">Mulai dengan menambahkan router pertama</div>
               <ol className="onboarding-steps">
                 <li>Di MikroTik, aktifkan service <code>api</code> (IP → Services) dan buat user khusus billing.</li>
                 <li>Isi form di bawah, lalu klik <strong>Uji Koneksi</strong> untuk memastikan terhubung.</li>

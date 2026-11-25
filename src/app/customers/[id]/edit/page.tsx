@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageHeader } from '@/components/ui';
 import { notFound } from 'next/navigation';
 import { verifySession } from '@/lib/dal';
 import { getCustomer } from '@/lib/billing';
@@ -33,17 +33,11 @@ export default async function EditCustomerPage({ params }: Props) {
 
   return (
     <div style={{ maxWidth: '840px', margin: '0 auto' }}>
-      <div className="page-header">
-        <div>
-          <Link href={`/customers/${customer.id}`} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            ← Kembali ke Detail Pelanggan
-          </Link>
-          <h1 className="page-title" style={{ marginTop: '8px' }}>Edit Pelanggan: {customer.name}</h1>
-          <p className="page-desc">
-            Ubah konfigurasi akun, tanggal jatuh tempo, atau tanggal isolir pelanggan.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: `/customers/${customer.id}`, label: 'Detail pelanggan' }}
+        title={`Edit ${customer.name}`}
+        desc="Ubah akun, paket, router, dan jadwal tagihan pelanggan."
+      />
 
       <CustomerEditForm customer={customer} packages={packages} routers={routers} />
     </div>

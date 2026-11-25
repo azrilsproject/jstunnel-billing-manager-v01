@@ -1,5 +1,6 @@
 import { verifySession } from '@/lib/dal';
 import { query } from '@/lib/db';
+import { PageHeader } from '@/components/ui';
 import { PackageList } from './PackageList';
 
 export default async function PackagesPage() {
@@ -25,14 +26,7 @@ export default async function PackagesPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Paket Layanan Internet</h1>
-          <p className="page-desc">
-            Atur tarif bulanan, profil PPP MikroTik, dan kecepatan bandwidth per paket.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Paket" desc="Tarif bulanan, profile PPP MikroTik, dan kecepatan tiap paket." />
 
       <PackageList initialPackages={packages} />
     </div>

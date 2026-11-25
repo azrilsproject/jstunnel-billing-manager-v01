@@ -47,16 +47,16 @@ export function RouterManager({ routers, selected, unassigned }: Props) {
             <div className="router-item-title">
               <span className="badge-dot" style={{ background: r.enabled ? '#10b981' : '#94a3b8' }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-              {r.is_default && <span className="router-pill router-pill-default">★ Default</span>}
+              {r.is_default && <span className="router-pill router-pill-default">Default</span>}
             </div>
             <div className="router-item-host">
               {r.host}:{r.port}
               {r.tls ? ' • TLS' : ''}
             </div>
             <div className="router-item-stats">
-              <span>👥 {r.customer_total}</span>
+              <span>{r.customer_total}</span>
               <span style={{ color: '#34d399' }}>● {r.customer_active}</span>
-              <span style={{ color: '#f87171' }}>🛡️ {r.customer_isolated}</span>
+              <span style={{ color: '#f87171' }}>{r.customer_isolated}</span>
             </div>
           </Link>
         ))}
@@ -69,7 +69,7 @@ export function RouterManager({ routers, selected, unassigned }: Props) {
         </Link>
         {unassigned > 0 && (
           <div style={{ fontSize: '12px', color: '#fbbf24', padding: '4px 2px' }}>
-            ⚠️ {unassigned} pelanggan belum dipasangkan ke router.
+            {unassigned} pelanggan belum dipasangkan ke router.
           </div>
         )}
       </nav>
@@ -96,11 +96,11 @@ function RouterDetail({ router, others, unassigned }: { router: RouterRow; other
       <div className="router-panel-head">
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>📡 {router.name}</h3>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{router.name}</h3>
             <span className={`router-pill ${router.enabled ? 'router-pill-on' : 'router-pill-off'}`}>
               {router.enabled ? '● Aktif' : '○ Nonaktif'}
             </span>
-            {router.is_default && <span className="router-pill router-pill-default">★ Default pelanggan baru</span>}
+            {router.is_default && <span className="router-pill router-pill-default">Default pelanggan baru</span>}
           </div>
           <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
             <code className="font-mono">{router.host}:{router.port}</code> • {router.customer_total} pelanggan •{' '}
@@ -114,7 +114,7 @@ function RouterDetail({ router, others, unassigned }: { router: RouterRow; other
             <form action={setDefaultRouter}>
               <input type="hidden" name="id" value={router.id} />
               <SubmitButton variant="secondary" size="sm" loadingText="...">
-                ★ Jadikan Default
+                Jadikan Default
               </SubmitButton>
             </form>
           )}
@@ -132,7 +132,7 @@ function RouterDetail({ router, others, unassigned }: { router: RouterRow; other
       {/* Pindahkan pelanggan massal */}
       <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '18px' }}>
         <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
-          🔀 Pindahkan Pelanggan Massal
+          Pindahkan Pelanggan Massal
         </h4>
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>
           Ubah router pelanggan di database sekaligus (mis. saat migrasi NAS). Secret di router tidak diubah — gunakan tombol
@@ -192,7 +192,7 @@ function RouterDetail({ router, others, unassigned }: { router: RouterRow; other
               <option value="">Lepas pelanggan (tanpa router)</option>
             </select>
             <button type="submit" className="btn btn-danger btn-sm">
-              🗑 Hapus Router
+              Hapus Router
             </button>
           </div>
         </DeleteConfirmForm>
@@ -251,7 +251,7 @@ function RouterForm({ router }: { router: RouterRow | null }) {
             {err.name && <FieldError msg={err.name} />}
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="r_isolir">🛡️ Profile Isolir di Router Ini *</label>
+            <label className="form-label" htmlFor="r_isolir">Profile Isolir di Router Ini *</label>
             <input id="r_isolir" name="isolir_profile" type="text" required defaultValue={router?.isolir_profile ?? 'ISOLIR'} className="form-input font-mono" />
           </div>
         </div>

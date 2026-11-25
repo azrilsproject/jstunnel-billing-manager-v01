@@ -151,7 +151,7 @@ export function CustomerImportForm({ routers }: { routers: RouterOption[] }) {
               download="template_import_pelanggan.csv"
               style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              📄 Unduh Template CSV
+              Unduh Template CSV
             </a>
           </div>
 
@@ -172,7 +172,7 @@ export function CustomerImportForm({ routers }: { routers: RouterOption[] }) {
                 transition: 'all 0.15s ease',
               }}
             >
-              📁 Upload File CSV
+              Upload File CSV
             </button>
             <button
               type="button"
@@ -189,7 +189,7 @@ export function CustomerImportForm({ routers }: { routers: RouterOption[] }) {
                 transition: 'all 0.15s ease',
               }}
             >
-              📋 Tempel Teks CSV
+              Tempel Teks CSV
             </button>
           </div>
 
@@ -344,7 +344,7 @@ export function CustomerImportForm({ routers }: { routers: RouterOption[] }) {
       {/* Panduan Format Kolom */}
       <div className="card" style={{ padding: '20px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--text-main)' }}>
-          📋 Format Kolom File CSV
+          Format Kolom File CSV
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
           File CSV dapat menggunakan pemisah koma (<code>,</code>) maupun titik-koma (<code>;</code>) seperti pada Microsoft Excel regional Indonesia.

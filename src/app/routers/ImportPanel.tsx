@@ -23,7 +23,7 @@ export function ImportPanel({ routers, selectedId }: { routers: RouterOption[]; 
 
   return (
     <>
-      <h2 className="section-title">📥 Impor Secret PPPoE dari Router</h2>
+      <h2 className="section-title">Impor Secret PPPoE dari Router</h2>
       <p className="section-desc">
         Tarik semua akun PPPoE yang sudah ada di router. Pelanggan hasil impor otomatis terpasang ke router tersebut.
         Akun yang profilnya belum cocok dengan paket akan dilewati dan dilaporkan.
@@ -55,7 +55,7 @@ export function ImportPanel({ routers, selectedId }: { routers: RouterOption[]; 
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <SubmitButton loadingText="Mengimpor secret...">📥 Tarik PPPoE dari Router</SubmitButton>
+          <SubmitButton loadingText="Mengimpor secret...">Tarik PPPoE dari Router</SubmitButton>
         </div>
       </form>
     </>

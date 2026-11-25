@@ -5,6 +5,7 @@ import { formatDate } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { deleteCustomerDirect } from '@/app/actions/customers';
 import { DeleteConfirmForm } from '@/components/DeleteConfirmForm';
+import { Avatar, EmptyState, Icon, PageHeader, StatusBadge } from '@/components/ui';
 import { listRoutersWithStats } from '@/lib/routers';
 
 type Props = {
@@ -74,36 +75,28 @@ export default async function CustomersPage({ searchParams }: Props) {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Pelanggan PPPoE</h1>
-          <p className="page-desc">
-            Kelola data pelanggan, kredensial secret PPPoE, tanggal aktif, dan tanggal isolir.
-          </p>
-        </div>
-        <div className="header-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <a
-            href="/api/customers/export"
-            className="btn btn-secondary"
-            download
-            title="Download seluruh data pelanggan ke format CSV"
-          >
-            📤 Export CSV
-          </a>
-          <Link href="/customers/import" className="btn btn-secondary">
-            📥 Import CSV
-          </Link>
-          <Link href="/customers/new" className="btn btn-primary">
-            + Tambah Pelanggan
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Pelanggan"
+        desc="Data pelanggan PPPoE, paket, dan jadwal tagihan serta isolir."
+        actions={
+          <>
+            <a href="/api/customers/export" className="btn btn-secondary" download title="Unduh semua pelanggan (CSV)">
+              <Icon name="download" size={16} /> Export
+            </a>
+            <Link href="/customers/import" className="btn btn-secondary">
+              <Icon name="upload" size={16} /> Import
+            </Link>
+            <Link href="/customers/new" className="btn btn-primary">
+              <Icon name="plus" size={16} /> Tambah Pelanggan
+            </Link>
+          </>
+        }
+      />
 
-      {/* Router Switcher */}
       {routers.length > 0 && (
         <div className="router-switcher" aria-label="Filter router">
           <Link href={qs({ router: '' })} className={`router-tab ${!router ? 'is-active' : ''}`}>
-            Semua Router <span className="router-tab-count">{allCount}</span>
+            Semua router <span className="router-tab-count">{allCount}</span>
           </Link>
           {routers.map((r) => (
             <Link
@@ -112,167 +105,123 @@ export default async function CustomersPage({ searchParams }: Props) {
               className={`router-tab ${router === String(r.id) ? 'is-active' : ''}`}
               title={`${r.host}:${r.port}${r.enabled ? '' : ' (nonaktif)'}`}
             >
-              <span className="badge-dot" style={{ background: r.enabled ? '#10b981' : '#94a3b8' }} />
+              <span className="badge-dot" style={{ background: r.enabled ? '#22c55e' : '#94a3b8' }} />
               {r.name}
               <span className="router-tab-count">{r.customer_total}</span>
             </Link>
           ))}
           {unassigned > 0 && (
             <Link href={qs({ router: 'none' })} className={`router-tab ${router === 'none' ? 'is-active' : ''}`}>
-              Tanpa Router <span className="router-tab-count">{unassigned}</span>
+              Tanpa router <span className="router-tab-count">{unassigned}</span>
             </Link>
           )}
         </div>
       )}
 
-      {/* Filter & Search Bar */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        <form method="GET" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <section className="panel">
+        <form method="GET" className="toolbar">
           {router && <input type="hidden" name="router" value={router} />}
-          <input
-            name="q"
-            type="text"
-            defaultValue={q}
-            placeholder="Cari nama, user PPPoE, telepon, kode..."
-            className="form-input"
-            style={{ maxWidth: '320px' }}
-          />
-
-          <select name="status" defaultValue={status} className="form-select" style={{ maxWidth: '180px' }}>
-            <option value="">Semua Status</option>
+          <div className="search-field">
+            <Icon name="search" size={16} />
+            <input name="q" type="text" defaultValue={q} placeholder="Cari nama, user PPPoE, telepon, kode…" className="form-input" />
+          </div>
+          <select name="status" defaultValue={status} className="form-select" style={{ maxWidth: '170px' }}>
+            <option value="">Semua status</option>
             <option value="active">Aktif</option>
             <option value="isolated">Terisolir</option>
             <option value="inactive">Berhenti</option>
           </select>
-
-          <button type="submit" className="btn btn-secondary">
-            Cari / Filter
-          </button>
-
+          <button type="submit" className="btn btn-secondary">Terapkan</button>
           {(q || status || router) && (
-            <Link href="/customers" className="btn btn-secondary" style={{ color: 'var(--text-muted)' }}>
-              Reset
-            </Link>
+            <Link href="/customers" className="btn btn-secondary text-muted">Reset</Link>
           )}
-
-          <div style={{ marginLeft: 'auto', fontSize: '13px', color: 'var(--text-muted)' }}>
-            Total: <strong>{customers.length}</strong> pelanggan ditemukan
-          </div>
+          <span className="toolbar-spacer">{customers.length} pelanggan</span>
         </form>
-      </div>
 
-      {/* Customer Table */}
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Kode / Pelanggan</th>
-              <th>PPPoE Secret</th>
-              <th>Paket Langganan</th>
-              <th>Router</th>
-              <th>Tgl Aktif</th>
-              <th>Jatuh Tempo</th>
-              <th style={{ textAlign: 'center' }}>Tgl Isolir</th>
-              <th style={{ textAlign: 'center' }}>Status</th>
-              <th style={{ textAlign: 'right' }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
-                  Tidak ada pelanggan yang cocok dengan pencarian atau belum ada data.
-                </td>
-              </tr>
-            ) : (
-              customers.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="font-mono" style={{ fontSize: '11px', color: '#93c5fd', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                        {c.code}
-                      </span>
-                      <strong style={{ color: 'var(--text-main)' }}>{c.name}</strong>
-                    </div>
-                    {c.phone && <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>📞 {c.phone}</div>}
-                  </td>
-                  <td>
-                    <code className="font-mono" style={{ color: '#059669', fontWeight: 600 }}>{c.pppoe_username}</code>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ color: 'var(--text-main)', fontWeight: 600 }}>{c.package_name}</div>
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 700,
-                          background: c.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                          color: c.billing_type === 'postpaid' ? '#2563eb' : '#059669',
-                          border: `1px solid ${c.billing_type === 'postpaid' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
-                        }}
-                        title={c.billing_type === 'postpaid' ? 'Pascabayar (Ditagihkan bulan depan)' : 'Prabayar (Ditagihkan di tanggal aktif)'}
-                      >
-                        {c.billing_type === 'postpaid' ? 'Pasca' : 'Pra'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{rupiah(c.package_price)}/bln</div>
-                  </td>
-                  <td>
-                    {c.router_name ? (
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#93c5fd' }}>📡 {c.router_name}</span>
-                    ) : (
-                      <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '13px' }}>{formatDate(c.active_date)}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: '#fcd34d', fontSize: '13px' }}>Tgl {c.due_day}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Tiap bulan</div>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className="date-chip date-chip-danger">
-                      🛡️ Tgl {c.isolir_day}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className={`badge ${c.status === 'active' ? 'badge-active' : c.status === 'isolated' ? 'badge-isolated' : 'badge-inactive'}`}>
-                      <span className="badge-dot" />
-                      {c.status === 'active' ? 'Aktif' : c.status === 'isolated' ? 'Terisolir' : 'Berhenti'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div className="action-cell-group">
-                      <Link href={`/customers/${c.id}`} className="btn btn-secondary table-action-btn">
-                        Detail
-                      </Link>
-                      <Link href={`/customers/${c.id}/edit`} className="btn btn-secondary table-action-btn">
-                        Edit
-                      </Link>
-                      <DeleteConfirmForm
-                        action={deleteCustomerDirect}
-                        confirmMessage={`Hapus pelanggan "${c.name}" (${c.code})?\n\nSemua data tagihan pelanggan ini juga akan terhapus!`}
-                      >
-                        <input type="hidden" name="id" value={c.id} />
-                        <button
-                          type="submit"
-                          className="btn btn-danger table-action-btn"
-                          title={`Hapus Pelanggan ${c.name}`}
-                        >
-                          Hapus
-                        </button>
-                      </DeleteConfirmForm>
-                    </div>
-                  </td>
+        {customers.length === 0 ? (
+          <EmptyState
+            icon="users"
+            title={q || status || router ? 'Tidak ada yang cocok' : 'Belum ada pelanggan'}
+            action={
+              q || status || router ? (
+                <Link href="/customers" className="btn btn-secondary btn-sm">Reset filter</Link>
+              ) : (
+                <Link href="/customers/new" className="btn btn-primary btn-sm"><Icon name="plus" size={15} /> Tambah Pelanggan</Link>
+              )
+            }
+          >
+            {q || status || router ? 'Coba ubah kata kunci atau filter.' : 'Tambahkan manual, atau impor dari CSV / router.'}
+          </EmptyState>
+        ) : (
+          <div className="table-wrapper" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Pelanggan</th>
+                  <th className="col-hide-sm">Paket</th>
+                  <th className="col-hide-md">Router</th>
+                  <th className="col-hide-sm">Jadwal</th>
+                  <th>Status</th>
+                  <th className="col-hide-sm" />
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {customers.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <Link href={`/customers/${c.id}`} className="person" style={{ color: 'inherit' }}>
+                        <Avatar name={c.name} />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="person-name">{c.name}</div>
+                          <div className="person-sub">
+                            <span className="code-tag">{c.code}</span> <span className="mono">{c.pppoe_username}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="col-hide-sm">
+                      <div style={{ fontWeight: 600 }}>
+                        {c.package_name}{' '}
+                        <span className={`pill ${c.billing_type === 'postpaid' ? 'pill-blue' : 'pill-green'}`} title={c.billing_type === 'postpaid' ? 'Pascabayar' : 'Prabayar'}>
+                          {c.billing_type === 'postpaid' ? 'Pasca' : 'Pra'}
+                        </span>
+                      </div>
+                      <div className="person-sub">{rupiah(c.package_price)}/bln</div>
+                    </td>
+                    <td className="col-hide-md">
+                      {c.router_name ? (
+                        <span className="router-link-chip"><Icon name="router" size={14} /> {c.router_name}</span>
+                      ) : (
+                        <span className="text-dim">—</span>
+                      )}
+                    </td>
+                    <td className="col-hide-sm">
+                      <div style={{ fontSize: '13px' }}>Tempo tgl <strong>{c.due_day}</strong></div>
+                      <div className="person-sub">Isolir tgl <span className="text-danger">{c.isolir_day}</span></div>
+                    </td>
+                    <td><StatusBadge status={c.status} /></td>
+                    <td className="col-hide-sm" style={{ textAlign: 'right' }}>
+                      <div className="action-cell-group">
+                        <Link href={`/customers/${c.id}`} className="btn btn-secondary btn-sm col-hide-sm">Detail</Link>
+                        <Link href={`/customers/${c.id}/edit`} className="btn btn-secondary btn-sm" title="Edit"><Icon name="edit" size={14} /></Link>
+                        <DeleteConfirmForm
+                          action={deleteCustomerDirect}
+                          confirmMessage={`Hapus pelanggan "${c.name}" (${c.code})?\n\nSemua data tagihan pelanggan ini juga akan terhapus!`}
+                        >
+                          <input type="hidden" name="id" value={c.id} />
+                          <button type="submit" className="btn btn-danger btn-sm" title={`Hapus ${c.name}`}>
+                            <Icon name="x" size={14} />
+                          </button>
+                        </DeleteConfirmForm>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

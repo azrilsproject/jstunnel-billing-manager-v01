@@ -113,7 +113,7 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'start' }}>
         {/* Kolom Kiri: Form Input */}
         <div className="card">
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '18px' }}>
+          <h2 className="form-section-title">
             Data Pelanggan & Periode Tagihan
           </h2>
 
@@ -316,7 +316,7 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
                   onChange={() => setStatus('unpaid')}
                 />
                 <span style={{ fontWeight: 600, color: status === 'unpaid' ? '#f59e0b' : 'var(--text-muted)' }}>
-                  🟡 Belum Bayar (Unpaid)
+                  Belum Bayar (Unpaid)
                 </span>
               </label>
 
@@ -329,7 +329,7 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
                   onChange={() => setStatus('paid')}
                 />
                 <span style={{ fontWeight: 600, color: status === 'paid' ? '#10b981' : 'var(--text-muted)' }}>
-                  🟢 Langsung Lunas (Paid)
+                  Langsung Lunas (Paid)
                 </span>
               </label>
             </div>
@@ -418,14 +418,14 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Jatuh Tempo:</span>
                 <span className="date-chip date-chip-warning" style={{ fontSize: '11.5px' }}>
-                  📅 {dueDate || '-'}
+                  {dueDate || '-'}
                 </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Batas Isolir:</span>
                 <span className="date-chip date-chip-danger" style={{ fontSize: '11.5px' }}>
-                  🛡️ {isolirDate || '-'}
+                  {isolirDate || '-'}
                 </span>
               </div>
 
@@ -455,7 +455,7 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
           <div className="card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <SubmitButton variant="primary" loadingText="Menerbitkan Invoice...">
-                💾 Simpan & Terbitkan Invoice
+                Simpan & Terbitkan Invoice
               </SubmitButton>
 
               <Link href="/invoices" className="btn btn-secondary" style={{ textAlign: 'center' }}>

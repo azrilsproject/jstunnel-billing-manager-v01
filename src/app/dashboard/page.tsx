@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { verifySession } from '@/lib/dal';
 import { query, queryOne } from '@/lib/db';
-import { formatDate, formatDateTime, periodLabel, todayStr } from '@/lib/dates';
+import { formatDateTime, periodLabel, todayStr } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
 import { getSettings } from '@/lib/settings';
 import { listRoutersWithStats } from '@/lib/routers';
 import { triggerBillingCycle, triggerGenerateInvoices } from '@/app/actions/invoices';
 import { SubmitButton } from '@/components/SubmitButton';
+import { Avatar, EmptyState, Icon, PageHeader, Panel, StatTile, StatusBadge } from '@/components/ui';
 
 export default async function DashboardPage() {
   await verifySession();
@@ -87,249 +88,187 @@ export default async function DashboardPage() {
   const unassigned =
     (await queryOne<{ n: number }>('SELECT count(*)::int AS n FROM customers WHERE router_id IS NULL'))?.n ?? 0;
 
+  const levelTone: Record<string, string> = { error: 'tone-red', warning: 'tone-amber', success: 'tone-green', info: 'tone-blue' };
+  const levelIcon = { error: 'x', warning: 'alert', success: 'check', info: 'info' } as const;
+
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Dashboard Operasional</h1>
-          <p className="page-desc">
-            Ringkasan status pelanggan PPPoE, penagihan bulanan, dan router MikroTik.
-          </p>
-        </div>
-        <div className="header-actions">
-          <form action={triggerGenerateInvoices}>
-            <SubmitButton variant="secondary" size="sm">
-              ⚡ Buat Invoice Bulan Ini
-            </SubmitButton>
-          </form>
-          <form action={triggerBillingCycle}>
-            <SubmitButton variant="primary" size="sm">
-              🔄 Jalankan Cek Isolir Sekarang
-            </SubmitButton>
-          </form>
-        </div>
+      <PageHeader
+        title="Dashboard"
+        desc={`Ringkasan pelanggan, tagihan ${periodLabel(currentPeriod)}, dan status router.`}
+        actions={
+          <>
+            <form action={triggerGenerateInvoices}>
+              <SubmitButton variant="secondary" size="sm">
+                <Icon name="receipt" size={15} /> Buat Invoice Bulan Ini
+              </SubmitButton>
+            </form>
+            <form action={triggerBillingCycle}>
+              <SubmitButton variant="primary" size="sm">
+                <Icon name="refresh" size={15} /> Jalankan Cek Isolir
+              </SubmitButton>
+            </form>
+          </>
+        }
+      />
+
+      <div className="stats-grid">
+        <StatTile
+          label="Total pelanggan"
+          value={statsCustomer?.total ?? 0}
+          sub={<><span className="text-success">{statsCustomer?.active ?? 0} aktif</span> · {statsCustomer?.inactive ?? 0} berhenti</>}
+          icon="users"
+          tone="blue"
+          href="/customers"
+        />
+        <StatTile
+          label="Terisolir"
+          value={statsCustomer?.isolated ?? 0}
+          sub="Menunggu pembayaran untuk dibuka"
+          icon="shield"
+          tone="red"
+          href="/customers?status=isolated"
+        />
+        <StatTile
+          label="Lunas bulan ini"
+          value={rupiah(statsInvoice?.paid_amount ?? 0)}
+          sub={`${statsInvoice?.paid_count ?? 0} invoice selesai`}
+          icon="wallet"
+          tone="green"
+          href="/invoices"
+        />
+        <StatTile
+          label="Belum dibayar"
+          value={rupiah(statsInvoice?.unpaid_amount ?? 0)}
+          sub={`${statsInvoice?.unpaid_count ?? 0} tagihan menunggu`}
+          icon="clock"
+          tone="amber"
+          href="/invoices"
+        />
       </div>
 
-      {/* Router Status Strip (multi-router) */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: routers.length ? '14px' : 0 }}>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>
-              {routers.length
-                ? `📡 ${enabledRouters} dari ${routers.length} router MikroTik aktif`
-                : '⚠️ Belum ada router MikroTik terhubung'}
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {routers.length
-                ? `Otomatis isolir: ${settings.auto_isolir === 'true' ? 'Aktif' : 'Nonaktif'}.` +
-                  (unassigned ? ` ${unassigned} pelanggan belum dipasangkan ke router.` : '')
-                : 'Sistem berjalan dalam mode pencatatan lokal. Tambahkan router di menu Pengaturan.'}
-            </div>
-          </div>
-          <Link href="/routers" className="btn btn-secondary btn-sm">
-            Kelola Router →
-          </Link>
-        </div>
-        {routers.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
-            {routers.map((r) => (
-              <Link
-                key={r.id}
-                href={`/customers?router=${r.id}`}
-                style={{
-                  display: 'block',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: `1px solid ${r.enabled ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.25)'}`,
-                  background: r.enabled ? 'rgba(16, 185, 129, 0.06)' : 'rgba(148, 163, 184, 0.06)',
-                  color: 'inherit',
-                  textDecoration: 'none',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
-                  <span className="badge-dot" style={{ background: r.enabled ? '#10b981' : '#94a3b8' }} />
-                  {r.name}
-                  {r.is_default && <span style={{ fontSize: '10px', color: '#fbbf24' }}>★</span>}
-                </div>
-                <div className="font-mono" style={{ fontSize: '11px', color: 'var(--text-dim)', margin: '2px 0 6px' }}>
-                  {r.host}:{r.port}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  <strong style={{ color: 'var(--text-main)' }}>{r.customer_total}</strong> pelanggan •{' '}
-                  <span style={{ color: '#f87171' }}>{r.customer_isolated} isolir</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Stat Grid */}
-      <div className="stat-grid">
-        <div className="stat-card" style={{ '--stat-glow': '#3b82f6' } as React.CSSProperties}>
-          <div className="stat-card-header">
-            <span className="stat-title">Total Pelanggan</span>
-            <div className="stat-icon">👥</div>
-          </div>
-          <div className="stat-value">{statsCustomer?.total ?? 0}</div>
-          <div className="stat-sub">
-            <span style={{ color: '#34d399', fontWeight: 600 }}>{statsCustomer?.active ?? 0} Aktif</span> •{' '}
-            <span>{statsCustomer?.inactive ?? 0} Berhenti</span>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ '--stat-glow': '#ef4444' } as React.CSSProperties}>
-          <div className="stat-card-header">
-            <span className="stat-title">Pelanggan Terisolir</span>
-            <div className="stat-icon" style={{ color: '#f87171' }}>🛡️</div>
-          </div>
-          <div className="stat-value" style={{ color: '#f87171' }}>
-            {statsCustomer?.isolated ?? 0}
-          </div>
-          <div className="stat-sub">
-            Profil PPP dialihkan ke profil isolir tiap router
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ '--stat-glow': '#10b981' } as React.CSSProperties}>
-          <div className="stat-card-header">
-            <span className="stat-title">Lunas Bulan Ini ({periodLabel(currentPeriod)})</span>
-            <div className="stat-icon" style={{ color: '#34d399' }}>💰</div>
-          </div>
-          <div className="stat-value" style={{ color: '#34d399' }}>
-            {rupiah(statsInvoice?.paid_amount ?? 0)}
-          </div>
-          <div className="stat-sub">
-            {statsInvoice?.paid_count ?? 0} invoice telah diselesaikan
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ '--stat-glow': '#f59e0b' } as React.CSSProperties}>
-          <div className="stat-card-header">
-            <span className="stat-title">Belum Dibayar Bulan Ini</span>
-            <div className="stat-icon" style={{ color: '#fbbf24' }}>⏳</div>
-          </div>
-          <div className="stat-value" style={{ color: '#fbbf24' }}>
-            {rupiah(statsInvoice?.unpaid_amount ?? 0)}
-          </div>
-          <div className="stat-sub">
-            {statsInvoice?.unpaid_count ?? 0} tagihan menunggu pembayaran
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Upcoming Isolir & Activity Logs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
-        {/* Kolom 1: Status Pelanggan & Jadwal Isolir */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Status & Tanggal Isolir</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Pelanggan terisolir & tanggal isolir terdekat</p>
-            </div>
-            <Link href="/customers" className="btn btn-secondary btn-sm">
-              Semua Pelanggan →
+      <div style={{ marginBottom: '20px' }}>
+        <Panel
+          title="Router MikroTik"
+          sub={
+            routers.length
+              ? `${enabledRouters} dari ${routers.length} router aktif · Isolir otomatis ${settings.auto_isolir === 'true' ? 'aktif' : 'nonaktif'}` +
+                (unassigned ? ` · ${unassigned} pelanggan belum punya router` : '')
+              : 'Belum ada router terhubung'
+          }
+          action={
+            <Link href="/routers" className="btn btn-secondary btn-sm">
+              Kelola Router <Icon name="arrow" size={14} />
             </Link>
-          </div>
+          }
+        >
+          {routers.length === 0 ? (
+            <EmptyState icon="router" title="Belum ada router" action={<Link href="/routers?router=new" className="btn btn-primary btn-sm"><Icon name="plus" size={15} /> Tambah Router</Link>}>
+              Sistem berjalan dalam mode pencatatan lokal sampai router ditambahkan.
+            </EmptyState>
+          ) : (
+            <div className="router-chips">
+              {routers.map((r) => (
+                <Link key={r.id} href={`/customers?router=${r.id}`} className="router-chip">
+                  <div className="router-chip-name">
+                    <span className="badge-dot" style={{ background: r.enabled ? '#22c55e' : '#94a3b8' }} />
+                    {r.name}
+                    {r.is_default && <span className="text-warning" style={{ fontSize: '11px' }}>★ default</span>}
+                  </div>
+                  <div className="router-chip-host">{r.host}:{r.port}</div>
+                  <div className="router-chip-meta">
+                    <strong style={{ color: 'var(--text-main)' }}>{r.customer_total}</strong> pelanggan ·{' '}
+                    <span className={r.customer_isolated ? 'text-danger' : ''}>{r.customer_isolated} isolir</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
 
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Pelanggan</th>
-                  <th>PPPoE User</th>
-                  <th>Tgl Isolir</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingIsolir.length === 0 ? (
+      <div className="grid-2">
+        <Panel
+          title="Perlu perhatian"
+          sub="Pelanggan terisolir dan jadwal isolir terdekat"
+          flush
+          action={
+            <Link href="/customers" className="btn btn-secondary btn-sm">
+              Semua <Icon name="arrow" size={14} />
+            </Link>
+          }
+        >
+          {upcomingIsolir.length === 0 ? (
+            <EmptyState icon="users" title="Belum ada pelanggan">
+              Tambahkan pelanggan pertama untuk mulai menagih.
+            </EmptyState>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '28px', color: 'var(--text-dim)' }}>
-                      Belum ada pelanggan terdaftar.
-                    </td>
+                    <th>Pelanggan</th>
+                    <th>Isolir</th>
+                    <th>Status</th>
+                    <th />
                   </tr>
-                ) : (
-                  upcomingIsolir.map((c) => (
+                </thead>
+                <tbody>
+                  {upcomingIsolir.map((c) => (
                     <tr key={c.id}>
                       <td>
-                        <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{c.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{c.package_name}</div>
+                        <div className="person">
+                          <Avatar name={c.name} />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="person-name">{c.name}</div>
+                            <div className="person-sub">{c.package_name} · <span className="mono">{c.pppoe_username}</span></div>
+                          </div>
+                        </div>
                       </td>
+                      <td className="nowrap">Tgl {c.isolir_day}</td>
                       <td>
-                        <code className="font-mono" style={{ color: '#059669', fontWeight: 600 }}>{c.pppoe_username}</code>
+                        <StatusBadge status={c.status as 'active' | 'isolated' | 'inactive'} />
+                        {c.unpaid_invoices > 0 && <div className="person-sub">{c.unpaid_invoices} tagihan</div>}
                       </td>
-                      <td>
-                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Tgl {c.isolir_day}</span>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Tiap bulan</div>
-                      </td>
-                      <td>
-                        <span className={`badge ${c.status === 'active' ? 'badge-active' : c.status === 'isolated' ? 'badge-isolated' : 'badge-inactive'}`}>
-                          <span className="badge-dot" />
-                          {c.status === 'active' ? 'Aktif' : c.status === 'isolated' ? 'Terisolir' : 'Berhenti'}
-                        </span>
-                      </td>
-                      <td>
-                        <Link href={`/customers/${c.id}`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
-                          Detail
-                        </Link>
+                      <td style={{ textAlign: 'right' }}>
+                        <Link href={`/customers/${c.id}`} className="btn btn-secondary btn-sm">Detail</Link>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Kolom 2: Log Aktivitas Terbaru */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Log Aktivitas Sistem</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Audit trail pembuatan invoice, pembayaran & isolir</p>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <Link href="/logs" className="btn btn-secondary btn-sm">
-              Semua Log →
-            </Link>
-          </div>
+          )}
+        </Panel>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {recentLogs.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '28px', color: 'var(--text-dim)' }}>
-                Belum ada catatan aktivitas.
-              </div>
-            ) : (
-              recentLogs.map((log) => (
-                <div
-                  key={log.id}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px',
-                  }}
-                >
-                  <span style={{ fontSize: '14px', marginTop: '2px' }}>
-                    {log.level === 'error' ? '❌' : log.level === 'warning' ? '⚠️' : log.level === 'success' ? '✅' : 'ℹ️'}
+        <Panel
+          title="Aktivitas terbaru"
+          sub="Invoice, pembayaran, dan isolir"
+          flush
+          action={
+            <Link href="/logs" className="btn btn-secondary btn-sm">
+              Semua <Icon name="arrow" size={14} />
+            </Link>
+          }
+        >
+          {recentLogs.length === 0 ? (
+            <EmptyState icon="list" title="Belum ada aktivitas" />
+          ) : (
+            <div className="feed">
+              {recentLogs.map((log) => (
+                <div key={log.id} className="feed-item">
+                  <span className={`feed-dot ${levelTone[log.level] ?? 'tone-slate'}`}>
+                    <Icon name={levelIcon[log.level as keyof typeof levelIcon] ?? 'info'} size={14} />
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '12.5px', color: 'var(--text-main)', wordBreak: 'break-word' }}>
-                      {log.message}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '3px' }}>
-                      {formatDateTime(log.created_at)} • Aksi: <code style={{ color: '#93c5fd' }}>{log.action}</code>
-                    </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="feed-msg">{log.message}</div>
+                    <div className="feed-meta">{formatDateTime(log.created_at)}</div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          )}
+        </Panel>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageHeader } from '@/components/ui';
 import { query } from '@/lib/db';
 import { verifySession } from '@/lib/dal';
 import { ManualInvoiceForm, CustomerOption, PackageOption } from './ManualInvoiceForm';
@@ -33,19 +33,11 @@ export default async function NewInvoicePage({ searchParams }: Props) {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <div className="page-header">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Link href="/invoices" style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-              ← Kembali ke Daftar Invoice
-            </Link>
-          </div>
-          <h1 className="page-title">Buat Invoice Manual</h1>
-          <p className="page-desc">
-            Terbitkan tagihan baru untuk pelanggan tertentu, sesuaikan nominal, periode, dan tanggal jatuh tempo.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: '/invoices', label: 'Daftar tagihan' }}
+        title="Buat invoice manual"
+        desc="Terbitkan tagihan untuk pelanggan tertentu dengan nominal dan tanggal sendiri."
+      />
 
       <ManualInvoiceForm
         customers={customers}

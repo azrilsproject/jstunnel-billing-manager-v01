@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import { formatDateTime } from '@/lib/dates';
 import { clearAllLogs, deleteSingleLog } from '@/app/actions/logs';
 import { DeleteConfirmForm } from '@/components/DeleteConfirmForm';
+import { EmptyState, Icon, PageHeader } from '@/components/ui';
 
 type Props = {
   searchParams: Promise<{ level?: string }>;
@@ -40,128 +41,74 @@ export default async function LogsPage({ searchParams }: Props) {
     LIMIT 100
   `, params);
 
+  const tone: Record<string, string> = { error: 'tone-red', warning: 'tone-amber', success: 'tone-green', info: 'tone-blue' };
+  const icon = { error: 'x', warning: 'alert', success: 'check', info: 'info' } as const;
+  const tabs = [
+    { v: '', label: 'Semua' },
+    { v: 'success', label: 'Sukses' },
+    { v: 'warning', label: 'Peringatan' },
+    { v: 'error', label: 'Error' },
+    { v: 'info', label: 'Info' },
+  ];
+
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Log Aktivitas Sistem</h1>
-          <p className="page-desc">
-            Audit trail otomatis setiap kali terjadi transaksi invoice, isolir router, atau perubahan akun.
-          </p>
-        </div>
-        <div className="header-actions">
-          <Link href="/logs" className={`btn btn-sm ${!level ? 'btn-primary' : 'btn-secondary'}`}>
-            Semua
-          </Link>
-          <Link href="/logs?level=success" className={`btn btn-sm ${level === 'success' ? 'btn-primary' : 'btn-secondary'}`}>
-            Sukses
-          </Link>
-          <Link href="/logs?level=warning" className={`btn btn-sm ${level === 'warning' ? 'btn-primary' : 'btn-secondary'}`}>
-            Isolir / Peringatan
-          </Link>
-          <Link href="/logs?level=error" className={`btn btn-sm ${level === 'error' ? 'btn-primary' : 'btn-secondary'}`}>
-            Error
-          </Link>
+      <PageHeader
+        title="Log Aktivitas"
+        desc="Jejak otomatis invoice, pembayaran, isolir, dan perubahan akun (100 terbaru)."
+        actions={
           <DeleteConfirmForm
             action={clearAllLogs}
             confirmMessage="Hapus seluruh catatan riwayat log aktivitas? Tindakan ini tidak dapat dibatalkan."
           >
-            <button type="submit" className="btn btn-danger btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              🗑️ Bersihkan Log
+            <button type="submit" className="btn btn-secondary text-danger">
+              <Icon name="x" size={15} /> Bersihkan Log
             </button>
           </DeleteConfirmForm>
-        </div>
+        }
+      />
+
+      <div className="router-switcher">
+        {tabs.map((t) => (
+          <Link key={t.v} href={t.v ? `/logs?level=${t.v}` : '/logs'} className={`router-tab ${level === t.v ? 'is-active' : ''}`}>
+            {t.label}
+          </Link>
+        ))}
       </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: '80px' }}>Tingkat</th>
-              <th style={{ width: '160px' }}>Waktu Kejadian</th>
-              <th style={{ width: '150px' }}>Kategori Aksi</th>
-              <th>Pesan Log</th>
-              <th>Terkait Pelanggan</th>
-              <th style={{ width: '60px', textAlign: 'center' }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-dim)' }}>
-                  Tidak ada catatan log pada filter ini.
-                </td>
-              </tr>
-            ) : (
-              logs.map((log) => (
-                <tr key={log.id}>
-                  <td>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color:
-                          log.level === 'error'
-                            ? '#f87171'
-                            : log.level === 'warning'
-                            ? '#fbbf24'
-                            : log.level === 'success'
-                            ? '#34d399'
-                            : '#93c5fd',
-                      }}
-                    >
-                      <span>
-                        {log.level === 'error' ? '❌' : log.level === 'warning' ? '⚠️' : log.level === 'success' ? '✅' : 'ℹ️'}
-                      </span>
-                      <span style={{ textTransform: 'uppercase' }}>{log.level}</span>
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {formatDateTime(log.created_at)}
-                    </span>
-                  </td>
-                  <td>
-                    <code className="font-mono" style={{ fontSize: '12px', color: '#a78bfa' }}>
-                      {log.action}
-                    </code>
-                  </td>
-                  <td>
-                    <div style={{ color: '#fff', fontSize: '13px', wordBreak: 'break-word' }}>
-                      {log.message}
-                    </div>
-                  </td>
-                  <td>
-                    {log.customer_id ? (
-                      <Link href={`/customers/${log.customer_id}`} style={{ fontSize: '12.5px' }}>
-                        {log.customer_name} ({log.customer_code})
-                      </Link>
-                    ) : (
-                      <span style={{ color: 'var(--text-dim)', fontSize: '12px' }}>-</span>
+      <section className="panel">
+        {logs.length === 0 ? (
+          <EmptyState icon="list" title="Tidak ada log">Belum ada catatan pada filter ini.</EmptyState>
+        ) : (
+          <div className="feed">
+            {logs.map((log) => (
+              <div key={log.id} className="feed-item">
+                <span className={`feed-dot ${tone[log.level] ?? 'tone-slate'}`}>
+                  <Icon name={icon[log.level as keyof typeof icon] ?? 'info'} size={14} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="feed-msg">{log.message}</div>
+                  <div className="feed-meta">
+                    {formatDateTime(log.created_at)} · <span className="mono">{log.action}</span>
+                    {log.customer_id && (
+                      <>
+                        {' · '}
+                        <Link href={`/customers/${log.customer_id}`}>{log.customer_name} ({log.customer_code})</Link>
+                      </>
                     )}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <form action={deleteSingleLog}>
-                      <input type="hidden" name="id" value={log.id} />
-                      <button
-                        type="submit"
-                        className="btn btn-danger"
-                        style={{ padding: '2px 8px', height: '24px', fontSize: '11px', borderRadius: '4px' }}
-                        title="Hapus baris log ini"
-                      >
-                        ✕
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                </div>
+                <form action={deleteSingleLog}>
+                  <input type="hidden" name="id" value={log.id} />
+                  <button type="submit" className="icon-btn" title="Hapus baris log ini" aria-label="Hapus log">
+                    <Icon name="x" size={14} />
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
