@@ -43,7 +43,7 @@ log()  { echo -e "\n${BLUE}${BOLD}==> $*${NC}"; }
 ok()   { echo -e "${GREEN}✔ $*${NC}"; }
 warn() { echo -e "${YELLOW}! $*${NC}"; }
 die()  { echo -e "${RED}[ERROR] $*${NC}" >&2; exit 1; }
-trap 'echo -e "${RED}[ERROR] Instalasi gagal di baris ${BASH_LINENO[0]:-$LINENO}/$LINENO, perintah: ${BASH_COMMAND}${NC}\n${RED}Perbaiki lalu jalankan ulang ./install.sh (aman diulang).${NC}" >&2' ERR
+trap 'echo -e "${RED}[ERROR] Instalasi gagal di baris $LINENO.\nPerbaiki lalu jalankan ulang ./install.sh (aman diulang).${NC}" >&2' ERR
 
 [ -t 1 ] && command -v clear >/dev/null 2>&1 && clear || true
 echo -e "${CYAN}${BOLD}"
@@ -63,6 +63,10 @@ else
 fi
 run_root() { $SUDO "$@" || { local rc=$?; echo "  (perintah root gagal: $*)" >&2; return $rc; }; }
 run_pg()   { if [ "$EUID" -eq 0 ]; then su postgres -c "psql -v ON_ERROR_STOP=1 $(printf '%q ' "$@")"; else sudo -u postgres psql -v ON_ERROR_STOP=1 "$@"; fi; }
+# repo pihak ketiga yang bermasalah (PPA lama dll) tidak boleh menghentikan instalasi
+apt_update() {
+  $SUDO apt-get update -y || warn "apt-get update melaporkan error pada sebagian repo (lihat di atas). Instalasi dilanjutkan; repo tersebut tidak diubah."
+}
 
 env_get() { [ -f "$2" ] && { grep -E "^$1=" "$2" | tail -1 | cut -d= -f2- || true; } || true; }
 port_in_use() { (echo >"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1; }
@@ -77,7 +81,7 @@ if [ -n "$SCRIPT_PATH" ] && [ -f "$SCRIPT_PATH" ] && [ -f "$(cd "$(dirname "$SCR
   APP_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 else
   log "Menyiapkan kode aplikasi di ${INSTALL_DIR}"
-  run_root apt-get update -y
+  apt_update
   run_root apt-get install -y git ca-certificates
   if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
@@ -159,7 +163,7 @@ echo -e "Instance: ${BOLD}${APP_NAME}${NC} | port ${BOLD}${APP_PORT}${NC} | fold
 
 # ------------------------------------------------------------ 1. paket dasar
 log "[1/8] Menginstall dependensi sistem dasar"
-run_root apt-get update -y
+apt_update
 run_root apt-get install -y curl git openssl ca-certificates gnupg lsb-release build-essential
 
 # swap otomatis untuk VM kecil (build Next.js butuh RAM)
