@@ -43,7 +43,7 @@ log()  { echo -e "\n${BLUE}${BOLD}==> $*${NC}"; }
 ok()   { echo -e "${GREEN}✔ $*${NC}"; }
 warn() { echo -e "${YELLOW}! $*${NC}"; }
 die()  { echo -e "${RED}[ERROR] $*${NC}" >&2; exit 1; }
-trap 'echo -e "${RED}[ERROR] Instalasi gagal di baris $LINENO. Perbaiki lalu jalankan ulang ./install.sh (aman diulang).${NC}" >&2' ERR
+trap 'echo -e "${RED}[ERROR] Instalasi gagal di baris ${BASH_LINENO[0]:-$LINENO}/$LINENO, perintah: ${BASH_COMMAND}${NC}\n${RED}Perbaiki lalu jalankan ulang ./install.sh (aman diulang).${NC}" >&2' ERR
 
 [ -t 1 ] && command -v clear >/dev/null 2>&1 && clear || true
 echo -e "${CYAN}${BOLD}"
@@ -61,7 +61,7 @@ elif command -v sudo >/dev/null 2>&1; then
 else
   die "Jalankan sebagai root atau install sudo terlebih dahulu."
 fi
-run_root() { $SUDO "$@"; }
+run_root() { $SUDO "$@" || { local rc=$?; echo "  (perintah root gagal: $*)" >&2; return $rc; }; }
 run_pg()   { if [ "$EUID" -eq 0 ]; then su postgres -c "psql -v ON_ERROR_STOP=1 $(printf '%q ' "$@")"; else sudo -u postgres psql -v ON_ERROR_STOP=1 "$@"; fi; }
 
 env_get() { [ -f "$2" ] && { grep -E "^$1=" "$2" | tail -1 | cut -d= -f2- || true; } || true; }
@@ -165,14 +165,21 @@ run_root apt-get install -y curl git openssl ca-certificates gnupg lsb-release b
 # swap otomatis untuk VM kecil (build Next.js butuh RAM)
 MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
 SWAP_MB=$(awk '/SwapTotal/ {print int($2/1024)}' /proc/meminfo)
-if [ "$MEM_MB" -lt 1800 ] && [ "$SWAP_MB" -lt 512 ] && [ ! -f /swapfile ]; then
-  warn "RAM ${MEM_MB}MB kecil, membuat swap 2GB agar build tidak gagal..."
-  run_root fallocate -l 2G /swapfile 2>/dev/null || run_root dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
-  run_root chmod 600 /swapfile
-  run_root mkswap /swapfile >/dev/null
-  run_root swapon /swapfile
-  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | run_root tee -a /etc/fstab >/dev/null
-  ok "Swap 2GB aktif"
+if [ "$MEM_MB" -lt 1800 ] && [ "$SWAP_MB" -lt 512 ]; then
+  if command -v systemd-detect-virt >/dev/null 2>&1 && systemd-detect-virt --container --quiet; then
+    warn "RAM ${MEM_MB}MB di dalam container (CT): swap tidak bisa dibuat dari sini."
+    warn "Bila build gagal/terhenti, naikkan RAM CT ke >= 2GB atau tambah Swap lewat host (Proxmox: Resources)."
+  elif [ ! -f /swapfile ]; then
+    warn "RAM ${MEM_MB}MB kecil, membuat swap 2GB agar build tidak gagal..."
+    if { run_root fallocate -l 2G /swapfile 2>/dev/null || run_root dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none; } \
+      && run_root chmod 600 /swapfile && run_root mkswap /swapfile >/dev/null && run_root swapon /swapfile 2>/dev/null; then
+      grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | run_root tee -a /etc/fstab >/dev/null
+      ok "Swap 2GB aktif"
+    else
+      run_root rm -f /swapfile
+      warn "Swap tidak bisa dibuat, instalasi dilanjutkan tanpa swap."
+    fi
+  fi
 fi
 
 # folder instance tambahan (port berbeda dari instance di folder ini)
