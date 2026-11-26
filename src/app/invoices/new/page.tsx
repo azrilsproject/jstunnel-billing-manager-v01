@@ -4,7 +4,7 @@ import { verifySession } from '@/lib/dal';
 import { ManualInvoiceForm, CustomerOption, PackageOption } from './ManualInvoiceForm';
 
 export const metadata = {
-  title: 'Buat Invoice Manual - JAMES BILLING',
+  title: 'Buat Invoice Manual - Billing Manager',
 };
 
 type Props = {

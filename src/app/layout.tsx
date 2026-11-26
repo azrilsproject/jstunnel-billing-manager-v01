@@ -4,7 +4,7 @@ import './globals.css';
 import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'JAMES BILLING - Billing Management PPPoE MikroTik',
+  title: 'Billing Manager - PPPoE MikroTik',
   description: 'Aplikasi manajemen billing, invoice bulanan, dan isolir otomatis PPPoE MikroTik',
 };
 

@@ -12,8 +12,8 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="auth-logo">J</div>
-          <h1 className="auth-title">JAMES BILLING</h1>
+          <div className="auth-logo">B</div>
+          <h1 className="auth-title">Billing Manager</h1>
           <p className="auth-sub">Billing & isolir otomatis PPPoE MikroTik</p>
         </div>
 
