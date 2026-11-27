@@ -18,6 +18,7 @@ import {
 import { listSecrets, removeSecret, upsertSecret } from '@/lib/mikrotik';
 import { getRouter, isRouterUsable } from '@/lib/routers';
 import { parseCsv } from '@/lib/csv';
+import { packageFitsRouter } from '@/lib/package-scope';
 
 const USERNAME_RE = /^[A-Za-z0-9._@-]+$/;
 
@@ -49,6 +50,16 @@ function parseCustomer(fd: FormData) {
   return { data, errors: e };
 }
 
+/** Paket harus berlaku di router pelanggan */
+async function packageScopeError(packageId: number, routerId: number | null) {
+  const pkg = await queryOne<{ router_id: number | null }>('SELECT router_id FROM packages WHERE id = $1', [packageId]);
+  if (!pkg) return fail('Paket tidak ditemukan', { package_id: 'Pilih paket' });
+  if (!packageFitsRouter(pkg.router_id, routerId)) {
+    return fail('Paket tidak tersedia di router yang dipilih', { package_id: 'Pilih paket milik router ini' });
+  }
+  return null;
+}
+
 function revalidateCustomer(id?: number) {
   revalidatePath('/customers');
   revalidatePath('/dashboard');
@@ -63,6 +74,8 @@ export async function createCustomer(_prev: ActionState, fd: FormData): Promise<
 
   const dup = await queryOne('SELECT 1 FROM customers WHERE pppoe_username = $1', [data.pppoe_username]);
   if (dup) return fail('Username PPPoE sudah dipakai', { pppoe_username: 'Sudah dipakai pelanggan lain' });
+  const scopeErr = await packageScopeError(data.package_id, data.router_id);
+  if (scopeErr) return scopeErr;
 
   const row = await queryOne<{ id: number; code: string }>(
     `INSERT INTO customers (name, phone, address, pppoe_username, pppoe_password, package_id,
@@ -108,6 +121,8 @@ export async function updateCustomer(_prev: ActionState, fd: FormData): Promise<
     data.pppoe_username, id,
   ]);
   if (dup) return fail('Username PPPoE sudah dipakai', { pppoe_username: 'Sudah dipakai pelanggan lain' });
+  const scopeErr = await packageScopeError(data.package_id, data.router_id);
+  if (scopeErr) return scopeErr;
 
   await query(
     `UPDATE customers SET name=$1, phone=$2, address=$3, pppoe_username=$4, pppoe_password=$5,
@@ -253,7 +268,11 @@ export async function importFromMikrotik(_prev: ActionState, fd: FormData): Prom
   } catch (err) {
     return fail(`Gagal mengambil secret: ${(err as Error).message}`);
   }
-  const packages = await query<{ id: number; mikrotik_profile: string }>('SELECT id, mikrotik_profile FROM packages');
+  const packages = await query<{ id: number; mikrotik_profile: string }>(
+    `SELECT id, mikrotik_profile FROM packages WHERE router_id IS NULL OR router_id = $1
+     ORDER BY router_id NULLS FIRST, id`,
+    [router.id],
+  );
   const byProfile = new Map(packages.map((p) => [p.mikrotik_profile.toLowerCase(), p.id]));
   const existing = new Set(
     (await query<{ pppoe_username: string }>('SELECT pppoe_username FROM customers')).map((r) => r.pppoe_username),
@@ -366,8 +385,11 @@ export async function importCustomersCsvAction(
     };
   }
 
+  // hanya paket yang berlaku di router tujuan; paket khusus router menimpa paket global
   const pkgs = await query<{ id: number; name: string; mikrotik_profile: string; price: number }>(
-    'SELECT id, name, mikrotik_profile, price FROM packages'
+    `SELECT id, name, mikrotik_profile, price FROM packages
+     WHERE router_id IS NULL OR router_id = $1 ORDER BY router_id NULLS FIRST, id`,
+    [router?.id ?? null],
   );
   const pkgMap = new Map<string, typeof pkgs[0]>();
   for (const p of pkgs) {
@@ -420,10 +442,10 @@ export async function importCustomersCsvAction(
     let pkg = pkgMap.get(pkgName.toLowerCase().trim());
     if (!pkg && autoCreatePackage && pkgName.trim()) {
       const newPkg = await queryOne<{ id: number; name: string; mikrotik_profile: string; price: number }>(
-        `INSERT INTO packages (name, price, mikrotik_profile, description)
-         VALUES ($1, 150000, $2, 'Dibuat otomatis dari import CSV')
+        `INSERT INTO packages (name, price, mikrotik_profile, description, router_id)
+         VALUES ($1, 150000, $2, 'Dibuat otomatis dari import CSV', $3)
          RETURNING id, name, mikrotik_profile, price`,
-        [pkgName.trim(), pkgName.trim()]
+        [pkgName.trim(), pkgName.trim(), router?.id ?? null]
       );
       if (newPkg) {
         pkg = newPkg;

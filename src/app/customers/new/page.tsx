@@ -14,7 +14,8 @@ export default async function NewCustomerPage() {
     price: number;
     speed: string | null;
     mikrotik_profile: string;
-  }>('SELECT id, name, price, speed, mikrotik_profile FROM packages ORDER BY price ASC');
+    router_id: number | null;
+  }>('SELECT id, name, price, speed, mikrotik_profile, router_id FROM packages ORDER BY price ASC');
 
   const routers = await query<RouterOption>(
     'SELECT id, name, host, enabled, is_default FROM routers ORDER BY is_default DESC, name ASC',

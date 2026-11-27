@@ -6,20 +6,12 @@ import { updateCustomer, deleteCustomer } from '@/app/actions/customers';
 import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { CustomerWithPackage } from '@/lib/billing';
-import { rupiah } from '@/lib/format';
-import { RouterOption, RouterSelect } from '@/components/RouterSelect';
-
-type Package = {
-  id: number;
-  name: string;
-  price: number;
-  speed: string | null;
-  mikrotik_profile: string;
-};
+import type { RouterOption } from '@/components/RouterSelect';
+import { PackageChoice, RouterPackageFields } from '@/components/RouterPackageFields';
 
 type Props = {
   customer: CustomerWithPackage;
-  packages: Package[];
+  packages: PackageChoice[];
   routers: RouterOption[];
 };
 
@@ -129,26 +121,14 @@ export function CustomerEditForm({ customer, packages, routers }: Props) {
             </div>
           </div>
 
-          <div className="form-row">
-          <div className="form-group">
-            <label className="form-label" htmlFor="package_id">
-              Pilihan Paket Layanan *
-            </label>
-            <select id="package_id" name="package_id" defaultValue={customer.package_id} required className="form-select">
-              {packages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {rupiah(p.price)}/bln ({p.speed || 'Profil: ' + p.mikrotik_profile})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <RouterSelect
+          <RouterPackageFields
             routers={routers}
-            defaultValue={customer.router_id}
-            help="Jika router diganti dan opsi sync dicentang, secret dibuat di router baru dan dihapus dari router lama."
+            packages={packages}
+            defaultRouterId={customer.router_id}
+            defaultPackageId={customer.package_id}
+            error={state.errors?.package_id}
+            routerHelp="Jika router diganti dan opsi sync dicentang, secret dibuat di router baru dan dihapus dari router lama."
           />
-          </div>
 
           <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
             <h2 className="form-section-title">

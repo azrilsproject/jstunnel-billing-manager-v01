@@ -18,7 +18,7 @@ export default async function NewInvoicePage({ searchParams }: Props) {
 
   const customers = await query<CustomerOption>(`
     SELECT c.id, c.code, c.name, c.phone, c.pppoe_username, c.due_day, c.isolir_day,
-           p.id AS package_id, p.name AS package_name, p.price
+           p.id AS package_id, p.name AS package_name, p.price, c.router_id
     FROM customers c
     JOIN packages p ON p.id = c.package_id
     WHERE c.status != 'inactive'
@@ -26,7 +26,7 @@ export default async function NewInvoicePage({ searchParams }: Props) {
   `);
 
   const packages = await query<PackageOption>(`
-    SELECT id, name, price
+    SELECT id, name, price, router_id
     FROM packages
     ORDER BY price ASC
   `);

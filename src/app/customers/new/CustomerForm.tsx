@@ -5,19 +5,11 @@ import Link from 'next/link';
 import { createCustomer } from '@/app/actions/customers';
 import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
-import { rupiah } from '@/lib/format';
-import { RouterOption, RouterSelect } from '@/components/RouterSelect';
-
-type Package = {
-  id: number;
-  name: string;
-  price: number;
-  speed: string | null;
-  mikrotik_profile: string;
-};
+import type { RouterOption } from '@/components/RouterSelect';
+import { PackageChoice, RouterPackageFields } from '@/components/RouterPackageFields';
 
 type Props = {
-  packages: Package[];
+  packages: PackageChoice[];
   routers: RouterOption[];
   defaultActiveDate: string;
   defaultDueDay: number;
@@ -131,26 +123,7 @@ export function CustomerForm({ packages, routers, defaultActiveDate, defaultDueD
           </div>
         </div>
 
-        <div className="form-row">
-        <div className="form-group">
-          <label className="form-label" htmlFor="package_id">
-            Pilihan Paket Layanan *
-          </label>
-          <select id="package_id" name="package_id" required className="form-select">
-            <option value="">-- Pilih Paket Internet --</option>
-            {packages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — {rupiah(p.price)}/bln ({p.speed || 'Profil: ' + p.mikrotik_profile})
-              </option>
-            ))}
-          </select>
-          {state.errors?.package_id && (
-            <div style={{ color: '#f87171', fontSize: '12px', marginTop: '4px' }}>{state.errors.package_id}</div>
-          )}
-        </div>
-
-        <RouterSelect routers={routers} />
-        </div>
+        <RouterPackageFields routers={routers} packages={packages} error={state.errors?.package_id} />
 
         {/* Bagian 3: Siklus Tagihan, Tanggal Aktif & Tanggal Isolir */}
         <div style={{ margin: '32px 0 20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>

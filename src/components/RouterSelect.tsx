@@ -16,6 +16,7 @@ type Props = {
   noneLabel?: string;
   help?: React.ReactNode;
   label?: string;
+  onChange?: (value: string) => void;
 };
 
 /** Dropdown pemilihan router MikroTik untuk form pelanggan / import */
@@ -28,6 +29,7 @@ export function RouterSelect({
   noneLabel = '— Tanpa router (hanya database) —',
   help,
   label = 'Router MikroTik (NAS)',
+  onChange,
 }: Props) {
   const fallback = routers.find((r) => r.is_default)?.id ?? routers[0]?.id ?? '';
   const value = defaultValue === undefined ? fallback : defaultValue ?? '';
@@ -37,7 +39,13 @@ export function RouterSelect({
       <label className="form-label" htmlFor={id}>
         {label}
       </label>
-      <select id={id} name={name} defaultValue={value} className="form-select">
+      <select
+        id={id}
+        name={name}
+        defaultValue={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        className="form-select"
+      >
         {allowNone && <option value="">{noneLabel}</option>}
         {routers.map((r) => (
           <option key={r.id} value={r.id}>

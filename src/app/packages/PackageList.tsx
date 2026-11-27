@@ -6,26 +6,32 @@ import { initialState } from '@/lib/action-state';
 import { SubmitButton } from '@/components/SubmitButton';
 import { rupiah } from '@/lib/format';
 import { EmptyState, Icon } from '@/components/ui';
+import { RouterOption, RouterSelect } from '@/components/RouterSelect';
 
-type Package = {
+export type PackageRow = {
   id: number;
   name: string;
   price: number;
   mikrotik_profile: string;
   speed: string | null;
   description: string | null;
+  router_id: number | null;
+  router_name: string | null;
   customer_count: number;
 };
 
 type Props = {
-  initialPackages: Package[];
+  initialPackages: PackageRow[];
+  routers: RouterOption[];
+  /** router pada tab yang aktif, jadi default paket baru */
+  selectedRouterId: number | null;
 };
 
-export function PackageList({ initialPackages }: Props) {
+export function PackageList({ initialPackages, routers, selectedRouterId }: Props) {
   const [saveState, saveAction] = useActionState(savePackage, initialState);
   const [delState, delAction] = useActionState(deletePackage, initialState);
 
-  const [editing, setEditing] = useState<Package | null>(null);
+  const [editing, setEditing] = useState<PackageRow | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
   return (
@@ -72,6 +78,15 @@ export function PackageList({ initialPackages }: Props) {
 
             <form action={saveAction} onSubmit={() => { setShowAdd(false); setEditing(null); }}>
               {editing && <input type="hidden" name="id" value={editing.id} />}
+
+              <RouterSelect
+                key={editing?.id ?? 'new'}
+                routers={routers}
+                defaultValue={editing ? editing.router_id : selectedRouterId}
+                label="Berlaku di router"
+                noneLabel="Semua router"
+                help="Pilih satu router bila paket / tarif / profile PPP ini khusus router tersebut."
+              />
 
               <div className="form-row">
                 <div className="form-group">
@@ -196,6 +211,13 @@ export function PackageList({ initialPackages }: Props) {
                 </div>
               </div>
               {pkg.description && <p className="pkg-desc">{pkg.description}</p>}
+              <div>
+                {pkg.router_name ? (
+                  <span className="router-link-chip"><Icon name="router" size={14} /> {pkg.router_name}</span>
+                ) : (
+                  <span className="router-link-chip">Semua router</span>
+                )}
+              </div>
               <div className="pkg-meta">
                 <span className="code-tag" title="Profile PPP di MikroTik">{pkg.mikrotik_profile}</span>
                 <span className="text-muted" style={{ fontSize: '12.5px' }}>

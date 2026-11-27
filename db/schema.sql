@@ -139,3 +139,7 @@ BEGIN
   RETURNING id INTO v_id;
   UPDATE customers SET router_id = v_id WHERE router_id IS NULL;
 END $$;
+
+-- Paket per router: NULL = berlaku di semua router
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS router_id INTEGER REFERENCES routers(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS packages_router_idx ON packages (router_id);

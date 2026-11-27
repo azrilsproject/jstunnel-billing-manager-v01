@@ -13,6 +13,7 @@ function parse(fd: FormData) {
     mikrotik_profile: str(fd, 'mikrotik_profile'),
     speed: str(fd, 'speed'),
     description: str(fd, 'description'),
+    router_id: int(fd, 'router_id') || null,
   };
   const errors: Record<string, string> = {};
   if (!data.name) errors.name = 'Nama paket wajib diisi';
@@ -27,16 +28,31 @@ export async function savePackage(_prev: ActionState, fd: FormData): Promise<Act
   const { data, errors } = parse(fd);
   if (Object.keys(errors).length) return fail('Periksa kembali isian', errors);
 
+  if (data.router_id) {
+    const router = await queryOne('SELECT 1 FROM routers WHERE id = $1', [data.router_id]);
+    if (!router) return fail('Router tidak ditemukan', { router_id: 'Pilih router yang ada' });
+    // paket yang dipakai pelanggan router lain tidak boleh dikhususkan ke router ini
+    if (id) {
+      const other = await queryOne<{ n: number }>(
+        'SELECT count(*)::int AS n FROM customers WHERE package_id = $1 AND router_id IS DISTINCT FROM $2',
+        [id, data.router_id],
+      );
+      if (other && other.n > 0) {
+        return fail(`Tidak bisa dikhususkan ke router ini: ${other.n} pelanggan di router lain / tanpa router masih memakai paket ini. Pindahkan paket mereka dulu.`);
+      }
+    }
+  }
+
   if (id) {
     await query(
-      `UPDATE packages SET name=$1, price=$2, mikrotik_profile=$3, speed=$4, description=$5 WHERE id=$6`,
-      [data.name, data.price, data.mikrotik_profile, data.speed || null, data.description || null, id],
+      `UPDATE packages SET name=$1, price=$2, mikrotik_profile=$3, speed=$4, description=$5, router_id=$6 WHERE id=$7`,
+      [data.name, data.price, data.mikrotik_profile, data.speed || null, data.description || null, data.router_id, id],
     );
     await logActivity('info', 'package.update', `Paket ${data.name} diperbarui`);
   } else {
     await query(
-      `INSERT INTO packages (name, price, mikrotik_profile, speed, description) VALUES ($1,$2,$3,$4,$5)`,
-      [data.name, data.price, data.mikrotik_profile, data.speed || null, data.description || null],
+      `INSERT INTO packages (name, price, mikrotik_profile, speed, description, router_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [data.name, data.price, data.mikrotik_profile, data.speed || null, data.description || null, data.router_id],
     );
     await logActivity('info', 'package.create', `Paket ${data.name} dibuat`);
   }

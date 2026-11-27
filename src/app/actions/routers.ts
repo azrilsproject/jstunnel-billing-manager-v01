@@ -115,6 +115,8 @@ export async function deleteRouter(fd: FormData): Promise<void> {
 
   const moved = await transaction(async (db) => {
     const { rowCount } = await db.query('UPDATE customers SET router_id = $1 WHERE router_id = $2', [moveTo, id]);
+    // paket khusus router ini ikut pindah bersama pelanggannya (atau jadi paket semua router)
+    await db.query('UPDATE packages SET router_id = $1 WHERE router_id = $2', [moveTo, id]);
     await db.query('DELETE FROM routers WHERE id = $1', [id]);
     if (r.is_default) {
       // pilih router lain sebagai default
@@ -165,13 +167,24 @@ export async function moveCustomersBetweenRouters(_prev: ActionState, fd: FormDa
   if (from !== 'none' && !fromId) return fail('Pilih router asal');
   if (fromId === to) return fail('Router asal dan tujuan sama');
 
+  // hanya pelanggan yang paketnya juga berlaku di router tujuan yang dipindah (agar tarif tidak berubah diam-diam)
+  const source = fromId ? 'c.router_id = $2' : 'c.router_id IS NULL';
   const rows = await query<{ id: number }>(
-    `UPDATE customers SET router_id = $1, updated_at = now()
-     WHERE ${fromId ? 'router_id = $2' : 'router_id IS NULL'} RETURNING id`,
+    `UPDATE customers c SET router_id = $1, updated_at = now()
+     FROM packages p
+     WHERE p.id = c.package_id AND ${source} AND (p.router_id IS NULL OR p.router_id = $1)
+     RETURNING c.id`,
     fromId ? [to, fromId] : [to],
   );
+  const left = await queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n FROM customers c WHERE ${fromId ? 'c.router_id = $1' : 'c.router_id IS NULL'}`,
+    fromId ? [fromId] : [],
+  );
+  const skipped = left?.n
+    ? ` ${left.n} pelanggan tidak dipindah karena paketnya khusus router asal — ganti paketnya dulu (atau jadikan paket "Semua router").`
+    : '';
   const toName = to ? (await getRouter(to))?.name : '(tanpa router)';
   await logActivity('info', 'router.move', `${rows.length} pelanggan dipindah ke ${toName}`);
   revalidateRouters();
-  return ok(`${rows.length} pelanggan dipindahkan ke ${toName}. Jalankan "Sync" per pelanggan bila secret perlu dibuat di router baru.`);
+  return ok(`${rows.length} pelanggan dipindahkan ke ${toName}. Jalankan "Sync" per pelanggan bila secret perlu dibuat di router baru.${skipped}`);
 }

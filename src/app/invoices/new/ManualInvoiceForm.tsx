@@ -7,6 +7,7 @@ import { createManualInvoiceAction } from '@/app/actions/invoices';
 import { SubmitButton } from '@/components/SubmitButton';
 import { computeSchedule, parseDate, todayStr, periodLabel, addMonths } from '@/lib/dates';
 import { rupiah } from '@/lib/format';
+import { packageFitsRouter } from '@/lib/package-scope';
 
 export type CustomerOption = {
   id: number;
@@ -19,12 +20,14 @@ export type CustomerOption = {
   package_id: number;
   package_name: string;
   price: number;
+  router_id: number | null;
 };
 
 export type PackageOption = {
   id: number;
   name: string;
   price: number;
+  router_id: number | null;
 };
 
 type Props = {
@@ -205,7 +208,7 @@ export function ManualInvoiceForm({ customers, packages, defaultCustomerId }: Pr
                 Nama Paket / Deskripsi Tagihan <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
               <div style={{ display: 'flex', gap: '6px' }}>
-                {packages.map((p) => (
+                {packages.filter((p) => packageFitsRouter(p.router_id, selectedCust?.router_id ?? null)).map((p) => (
                   <button
                     key={p.id}
                     type="button"
